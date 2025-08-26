@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/auth_controller.dart';
-import '../../routes/app_routes.dart';
 import '../../utils/colors.dart';
-import '../../utils/text_styles.dart';
 import '../../widgets/CustomButton.dart';
 import '../../widgets/CustomTextField.dart';
 
@@ -63,9 +61,9 @@ class ForgotPasswordView extends GetView<AuthController> {
                       const SizedBox(height: 16),
 
                       // Title
-                      const Text(
-                        'Forgot your Password?',
-                        style: TextStyle(
+                      Text(
+                        'forgot_your_password'.tr,
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                           color: AppColors.textPrimary,
@@ -76,9 +74,9 @@ class ForgotPasswordView extends GetView<AuthController> {
                       const SizedBox(height: 16),
 
                       // Description
-                      const Text(
-                        'Enter mobile number and we will share a\nlink to create a new password.',
-                        style: TextStyle(
+                      Text(
+                        'forgot_password_description'.tr,
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
                           color: Color(0xFF6B7280),
@@ -92,7 +90,7 @@ class ForgotPasswordView extends GetView<AuthController> {
                       // Mobile number field
                       CustomTextField(
                         controller: controller.phoneController,
-                        hintText: 'Enter your mobile number',
+                        hintText: 'enter_mobile_number'.tr,
                         prefixIcon: Icons.phone_outlined,
                         keyboardType: TextInputType.phone,
                       ),
@@ -101,7 +99,7 @@ class ForgotPasswordView extends GetView<AuthController> {
 
                       // Send button
                       Obx(() => CustomButton(
-                        text: 'Send',
+                        text: 'send'.tr,
                         onPressed: controller.sendResetCode,
                         isLoading: controller.isLoading.value,
                         width: double.infinity,

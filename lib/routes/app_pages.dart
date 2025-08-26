@@ -1,5 +1,18 @@
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
+import 'package:khabir/controllers/AddServiceController.dart';
+import 'package:khabir/controllers/IncomeController.dart';
+import 'package:khabir/controllers/NotificationsController.dart';
+import 'package:khabir/controllers/OffersController.dart';
+import 'package:khabir/controllers/ProfileController.dart';
+import 'package:khabir/controllers/RequestsController.dart';
+import 'package:khabir/view/income/IncomeView.dart';
+import 'package:khabir/view/notifications/NotificationsView.dart';
+import 'package:khabir/view/offers/OffersView.dart';
+import 'package:khabir/view/profile/ProfileView.dart';
+import 'package:khabir/view/requests/requestsView.dart';
+import 'package:khabir/view/services/AddServiceView.dart';
+import 'package:khabir/view/services/ServicesView.dart';
 // import '../views/splash/splash_view.dart';
 // import '../views/onboarding/onboarding_view.dart';
 import '../bindings/initial_binding.dart';
@@ -18,7 +31,6 @@ class AppPages {
   static const INITIAL = AppRoutes.SPLASH;
 
   static final routes = [
-
     // صفحة البدء
     GetPage(
       name: AppRoutes.SPLASH,
@@ -30,7 +42,6 @@ class AppPages {
       name: AppRoutes.ONBOARDING,
       page: () => OnboardingView(),
       binding: OnboardingBinding(),
-
     ),
 
     // صفحات المصادقة
@@ -77,6 +88,57 @@ class AppPages {
       binding: AuthBinding(),
     ),
 
+    GetPage(
+      name: AppRoutes.SERVICES,
+      page: () => ServicesView(),
+    ),
 
+    GetPage(
+      name: AppRoutes.ADD_SERVICE,
+      page: () => AddServiceView(),
+      binding: BindingsBuilder(() {
+        Get.put(AddServiceController());
+      }),
+    ),
+
+    GetPage(
+      name: AppRoutes.OFFERS,
+      page: () => OffersView(),
+      binding: BindingsBuilder(() {
+        Get.put(OffersController());
+      }),
+    ),
+
+    GetPage(
+      name: AppRoutes.REQUESTS,
+      page: () => RequestsView(),
+      binding: BindingsBuilder(() {
+        Get.put(RequestsController());
+      }),
+    ),
+
+    GetPage(
+      name: AppRoutes.INCOME,
+      page: () => IncomeView(),
+      binding: BindingsBuilder(() {
+        Get.put(IncomeController());
+      }),
+    ),
+
+    GetPage(
+      name: AppRoutes.PROFILE,
+      page: () => ProfileView(),
+      binding: BindingsBuilder(() {
+        Get.put(ProfileController());
+      }),
+    ),
+
+    GetPage(
+      name: AppRoutes.NOTIFICATIONS,
+      page: () => NotificationsView(),
+      binding: BindingsBuilder(() {
+        Get.put(NotificationsController());
+      }),
+    ),
   ];
 }

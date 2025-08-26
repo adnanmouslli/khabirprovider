@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/home_controller.dart';
-import '../../utils/colors.dart';
 import '../../widgets/TopBar.dart';
 
 class HomeView extends GetView<HomeController> {
@@ -16,30 +15,25 @@ class HomeView extends GetView<HomeController> {
             TopBar(
               notificationCount: 3,
               onNotificationTap: () {
-                // Handle notification tap
-                Get.snackbar('إشعارات', 'تم النقر على الإشعارات');
+                controller.handleNotificationTap();
               },
               onProfileTap: () {
-                // Handle profile tap
-                Get.snackbar('الملف الشخصي', 'تم النقر على الملف الشخصي');
+                controller.handleProfileTap();
               },
               onWhatsAppTap: () {
-                // Handle WhatsApp tap
-                Get.snackbar('واتساب', 'تم النقر على واتساب');
+                controller.handleWhatsAppTap();
               },
               onLogoTap: () {
-                // Handle logo tap
-                Get.snackbar('خبير', 'مرحباً بك في خبير');
+                Get.snackbar('خبير', 'welcome_message'.tr);
               },
             ),
 
-            const SizedBox(height: 40),
-
+            const SizedBox(height: 30),
 
             // Main Content
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   children: [
                     // Grid Cards
@@ -48,28 +42,28 @@ class HomeView extends GetView<HomeController> {
                         crossAxisCount: 2,
                         crossAxisSpacing: 16,
                         mainAxisSpacing: 16,
-                        childAspectRatio: 1.1,
+                        childAspectRatio: 0.75, // نسبة أصغر لارتفاع أكبر
                         children: [
                           // Services Card
                           _buildGridCard(
                             imagePath: 'assets/images/grid1.png',
-                            title: 'Services',
-                            subtitle: 'Num: 6',
+                            title: 'services'.tr,
+                            subtitle: '',
                             onTap: () => controller.navigateToServices(),
                           ),
 
                           // Requests Card
                           _buildGridCard(
                             imagePath: 'assets/images/grid2.png',
-                            title: 'Requests',
-                            subtitle: 'Num: 12',
+                            title: 'requests'.tr,
+                            subtitle: '',
                             onTap: () => controller.navigateToRequests(),
                           ),
 
                           // Income Card
                           _buildGridCard(
                             imagePath: 'assets/images/grid3.png',
-                            title: 'Income',
+                            title: 'income'.tr,
                             subtitle: '',
                             onTap: () => controller.navigateToIncome(),
                           ),
@@ -77,7 +71,7 @@ class HomeView extends GetView<HomeController> {
                           // Offers Card
                           _buildGridCard(
                             imagePath: 'assets/images/grid4.png',
-                            title: 'Offers',
+                            title: 'offers'.tr,
                             subtitle: '',
                             onTap: () => controller.navigateToOffers(),
                           ),
@@ -110,15 +104,14 @@ class HomeView extends GetView<HomeController> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.1),
-              spreadRadius: 2,
-              blurRadius: 8,
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 6,
               offset: const Offset(0, 2),
             ),
           ],
@@ -126,40 +119,40 @@ class HomeView extends GetView<HomeController> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Image container
-            Container(
-              width: 180,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    spreadRadius: 2,
+            // Image container with better proportions
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final containerWidth =
+                    constraints.maxWidth * 0.9; // 90% من عرض الكونتينر
+                return Container(
+                  width: containerWidth,
+                  height: containerWidth, // لجعله مربع
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                ],
-              ),
-              child: Center(
-                child: Image.asset(
-                  imagePath,
-                  width: 65,  // حجم أصغر للصورة
-                  height: 65, // حجم أصغر للصورة
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(
-                      Icons.image_not_supported,
-                      color: Colors.grey[400],
-                      size: 20, // حجم أصغر للأيقونة
-                    );
-                  },
-                ),
-              ),
+                  child: Center(
+                    child: Image.asset(
+                      imagePath,
+                      width: containerWidth * 0.5, // 50% من عرض الحاوية
+                      height: containerWidth * 0.5,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          Icons.image_not_supported,
+                          color: Colors.grey[400],
+                          size: containerWidth * 0.375, // 37.5% من عرض الحاوية
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
             ),
 
             const SizedBox(height: 16),
 
-            // Title
+            // Title with better text style
             Text(
               title,
               style: const TextStyle(
@@ -167,9 +160,10 @@ class HomeView extends GetView<HomeController> {
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
               ),
+              textAlign: TextAlign.center,
             ),
 
-            // Subtitle
+            // Subtitle with consistent spacing
             if (subtitle.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(
@@ -177,8 +171,13 @@ class HomeView extends GetView<HomeController> {
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
                 ),
+                textAlign: TextAlign.center,
               ),
+            ] else ...[
+              const SizedBox(
+                  height: 16), // مساحة ثابتة حتى لو لم يكن هناك subtitle
             ],
           ],
         ),
@@ -196,15 +195,15 @@ class HomeView extends GetView<HomeController> {
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 2,
-            blurRadius: 8,
+            spreadRadius: 1,
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
         children: [
-          // Star icon
+          // Star icon container
           Container(
             width: 50,
             height: 50,
@@ -225,9 +224,10 @@ class HomeView extends GetView<HomeController> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Customer Reviews',
+                 Text(
+                  'customer_reviews'.tr,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -237,33 +237,80 @@ class HomeView extends GetView<HomeController> {
 
                 const SizedBox(height: 8),
 
-                // Rating stars
-                Row(
-                  children: [
-                    // 5 stars
-                    Row(
-                      children: List.generate(5, (index) {
-                        return const Icon(
-                          Icons.star,
-                          color: Colors.amber,
-                          size: 16,
-                        );
-                      }),
-                    ),
+                // Rating stars row
+                Obx(() {
+                  if (controller.isLoadingRating.value) {
+                    return Row(
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'loading'.tr,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    );
+                  }
 
-                    const SizedBox(width: 8),
+                  final rating = controller.customerRating.value;
+                  final fullStars = rating.floor();
+                  final hasHalfStar = (rating - fullStars) >= 0.5;
 
-                    // Rating value
-                    const Text(
-                      '5.0',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87,
+                  return Row(
+                    children: [
+                      // Stars display
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(5, (index) {
+                          if (index < fullStars) {
+                            // Full star
+                            return const Icon(
+                              Icons.star,
+                              color: Colors.amber,
+                              size: 16,
+                            );
+                          } else if (index == fullStars && hasHalfStar) {
+                            // Half star
+                            return const Icon(
+                              Icons.star_half,
+                              color: Colors.amber,
+                              size: 16,
+                            );
+                          } else {
+                            // Empty star
+                            return const Icon(
+                              Icons.star_border,
+                              color: Colors.amber,
+                              size: 16,
+                            );
+                          }
+                        }),
                       ),
-                    ),
-                  ],
-                ),
+
+                      const SizedBox(width: 8),
+
+                      // Rating value
+                      Text(
+                        controller.formattedRating,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  );
+                }),
               ],
             ),
           ),
@@ -271,4 +318,5 @@ class HomeView extends GetView<HomeController> {
       ),
     );
   }
+
 }

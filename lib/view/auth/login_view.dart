@@ -8,7 +8,7 @@ import '../../widgets/CustomButton.dart';
 import '../../widgets/CustomTextField.dart';
 
 class LoginView extends GetView<AuthController> {
-  final AuthController controller = Get.put(AuthController());
+  const LoginView({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -70,9 +70,9 @@ class LoginView extends GetView<AuthController> {
   Widget _buildWelcomeText() {
     return Column(
       children: [
-        const Text(
-          'Welcome Back',
-          style: TextStyle(
+        Text(
+          'welcome_back'.tr,
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w700,
             color: Color(0xFFEF4444), // Red color matching the design
@@ -81,9 +81,9 @@ class LoginView extends GetView<AuthController> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Login to continue',
-          style: TextStyle(
+        Text(
+          'login_to_continue'.tr,
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w400,
             color: Color(0xFFEF4444), // Red color matching the design
@@ -97,12 +97,12 @@ class LoginView extends GetView<AuthController> {
   Widget _buildLoginForm() {
     return Column(
       children: [
-        // Mobile number field
+        // Email/Phone field
         CustomTextField(
           controller: controller.emailController,
-          hintText: 'Enter your mobile number',
-          prefixIcon: Icons.phone,
-          keyboardType: TextInputType.phone,
+          hintText: 'enter_email_or_mobile'.tr,
+          prefixIcon: Icons.email_outlined,
+          keyboardType: TextInputType.emailAddress,
         ),
 
         const SizedBox(height: 20),
@@ -110,12 +110,12 @@ class LoginView extends GetView<AuthController> {
         // Password field
         Obx(() => CustomTextField(
           controller: controller.passwordController,
-          hintText: 'Enter your password',
+          hintText: 'enter_password'.tr,
           prefixIcon: Icons.lock_outline,
           suffixIcon: controller.isPasswordVisible.value
               ? Icons.visibility_off
               : Icons.visibility,
-          // onSuffixTap: controller.togglePasswordVisibility,
+          onSuffixTap: controller.togglePasswordVisibility,
           isPassword: !controller.isPasswordVisible.value,
         )),
       ],
@@ -134,9 +134,9 @@ class LoginView extends GetView<AuthController> {
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-        child: const Text(
-          'Forgot Password?',
-          style: TextStyle(
+        child: Text(
+          'forgot_password'.tr,
+          style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: Color(0xFFEF4444), // Red color matching the design
@@ -170,9 +170,9 @@ class LoginView extends GetView<AuthController> {
             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
           ),
         )
-            : const Text(
-          'LOG IN',
-          style: TextStyle(
+            : Text(
+          'log_in'.tr,
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
@@ -186,9 +186,9 @@ class LoginView extends GetView<AuthController> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
-          "Don't have an account? ",
-          style: TextStyle(
+        Text(
+          'dont_have_account'.tr + ' ',
+          style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w400,
             color: Color(0xFF6B7280),
@@ -196,9 +196,9 @@ class LoginView extends GetView<AuthController> {
         ),
         GestureDetector(
           onTap: () => Get.toNamed(AppRoutes.REGISTER),
-          child: const Text(
-            'Sign up now',
-            style: TextStyle(
+          child: Text(
+            'sign_up_now'.tr,
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Color(0xFFEF4444), // Red color matching the design

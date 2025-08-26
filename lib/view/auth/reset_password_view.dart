@@ -25,9 +25,9 @@ class ResetPasswordView extends GetView<AuthController> {
             size: 20,
           ),
         ),
-        title: const Text(
-          'Reset password',
-          style: TextStyle(
+        title: Text(
+          'reset_password'.tr,
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
@@ -44,9 +44,9 @@ class ResetPasswordView extends GetView<AuthController> {
               const SizedBox(height: 40),
 
               // Description
-              const Text(
-                'Enter a new password and\ndon\'t forget it',
-                style: TextStyle(
+              Text(
+                'reset_password_description'.tr,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textSecondary,
@@ -60,7 +60,7 @@ class ResetPasswordView extends GetView<AuthController> {
               // New password field
               Obx(() => CustomTextField(
                 controller: controller.newPasswordController,
-                hintText: 'Enter new password',
+                hintText: 'enter_new_password'.tr,
                 prefixIcon: Icons.lock_outline,
                 suffixIcon: controller.isNewPasswordVisible.value
                     ? Icons.visibility_off
@@ -74,7 +74,7 @@ class ResetPasswordView extends GetView<AuthController> {
               // Confirm new password field
               Obx(() => CustomTextField(
                 controller: controller.confirmNewPasswordController,
-                hintText: 'Confirm new password',
+                hintText: 'confirm_new_password'.tr,
                 prefixIcon: Icons.lock_outline,
                 suffixIcon: controller.isConfirmNewPasswordVisible.value
                     ? Icons.visibility_off
@@ -87,7 +87,7 @@ class ResetPasswordView extends GetView<AuthController> {
 
               // Submit button
               Obx(() => CustomButton(
-                text: 'Submit',
+                text: 'submit'.tr,
                 onPressed: controller.resetPassword,
                 isLoading: controller.isLoading.value,
                 width: double.infinity,

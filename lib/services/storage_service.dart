@@ -99,6 +99,10 @@ class StorageService extends GetxService {
   String get userToken => readWithDefault('user_token', '');
   set userToken(String value) => write('user_token', value);
 
+  // FCM Token
+  String get fcmToken => readWithDefault('fcm_token', '');
+  set fcmToken(String value) => write('fcm_token', value);
+
   // بيانات المستخدم
   Map<String, dynamic> get userData {
     final data = readMap('user_data');
@@ -122,6 +126,56 @@ class StorageService extends GetxService {
   bool get notificationsEnabled => readWithDefault('notifications_enabled', true);
   set notificationsEnabled(bool value) => write('notifications_enabled', value);
 
+  // --- وظائف FCM Token ---
+
+  // حفظ FCM Token
+  Future<bool> setFCMToken(String token) async {
+    if (token.isEmpty) return false;
+
+    final success = await write('fcm_token', token);
+    if (success) {
+      print('FCM Token saved successfully: ${token.substring(0, 20)}...');
+    }
+    return success;
+  }
+
+  // الحصول على FCM Token
+  String getFCMToken() {
+    final token = fcmToken;
+    if (token.isEmpty) {
+      print('Warning: FCM Token is empty or not found');
+    }
+    return token;
+  }
+
+  // التحقق من وجود FCM Token
+  bool hasFCMToken() {
+    return fcmToken.isNotEmpty;
+  }
+
+  // حذف FCM Token
+  Future<bool> clearFCMToken() async {
+    final success = await write('fcm_token', '');
+    if (success) {
+      print('FCM Token cleared successfully');
+    }
+    return success;
+  }
+
+  // تحديث FCM Token إذا كان مختلف
+  Future<bool> updateFCMToken(String newToken) async {
+    if (newToken.isEmpty) return false;
+
+    final currentToken = fcmToken;
+    if (currentToken == newToken) {
+      print('FCM Token is already up to date');
+      return true;
+    }
+
+    print('Updating FCM Token...');
+    return await setFCMToken(newToken);
+  }
+
   // --- وظائف مساعدة ---
 
   // حفظ بيانات المستخدم بعد تسجيل الدخول
@@ -129,11 +183,17 @@ class StorageService extends GetxService {
     required String token,
     required Map<String, dynamic> user,
     required String type,
+    String? fcmToken,
   }) async {
     await write('user_token', token);
     await writeMap('user_data', user);
     await write('user_type', type);
     await write('is_logged_in', true);
+
+    // حفظ FCM Token إذا تم تمريره
+    if (fcmToken != null && fcmToken.isNotEmpty) {
+      await setFCMToken(fcmToken);
+    }
   }
 
   // مسح جلسة المستخدم
@@ -142,6 +202,7 @@ class StorageService extends GetxService {
     await writeMap('user_data', <String, dynamic>{});
     await write('user_type', '');
     await write('is_logged_in', false);
+    // لا نحذف FCM Token عند تسجيل الخروج لأنه مطلوب للإشعارات العامة
   }
 
   // إعادة تعيين إعدادات التطبيق
@@ -151,7 +212,8 @@ class StorageService extends GetxService {
     await write('language', 'ar');
     await write('theme_mode', 'light');
     await write('notifications_enabled', true);
-
+    // حذف FCM Token أيضاً عند إعادة التعيين الكامل
+    await clearFCMToken();
   }
 
   // طباعة حالة التخزين (للتشخيص)
@@ -164,6 +226,10 @@ class StorageService extends GetxService {
     print('Theme Mode: $themeMode');
     print('Notifications: $notificationsEnabled');
     print('Has User Token: ${userToken.isNotEmpty}');
+    print('Has FCM Token: ${hasFCMToken()}');
+    if (hasFCMToken()) {
+      print('FCM Token Preview: ${fcmToken.substring(0, 20)}...');
+    }
     print('User Data Keys: ${userData.keys.toList()}');
     print('All Keys: ${getKeys().toList()}');
     print('=== End Debug ===');

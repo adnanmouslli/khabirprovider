@@ -24,9 +24,9 @@ class VerifyAccountView extends GetView<AuthController> {
             size: 20,
           ),
         ),
-        title: const Text(
-          'Verify your mobile number',
-          style: TextStyle(
+        title: Text(
+          'verify_mobile_number'.tr,
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
             color: Color(0xFF111827),
@@ -43,9 +43,9 @@ class VerifyAccountView extends GetView<AuthController> {
               const SizedBox(height: 32),
 
               // Description
-              const Text(
-                'We sent you a 4 digit code to verify\nyour mobile number',
-                style: TextStyle(
+              Text(
+                'verification_code_sent'.tr,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                   color: Color(0xFF111827),
@@ -56,9 +56,9 @@ class VerifyAccountView extends GetView<AuthController> {
 
               const SizedBox(height: 16),
 
-              const Text(
-                'Enter in the field below.',
-                style: TextStyle(
+              Text(
+                'enter_field_below'.tr,
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
                   color: Color(0xFF6B7280),
@@ -80,7 +80,7 @@ class VerifyAccountView extends GetView<AuthController> {
 
               // Submit button
               Obx(() => CustomButton(
-                text: 'Submit',
+                text: 'submit'.tr,
                 onPressed: controller.verifyAccount,
                 isLoading: controller.isLoading.value,
                 width: double.infinity,
@@ -162,9 +162,9 @@ class VerifyAccountView extends GetView<AuthController> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
-          "Didn't get the code? ",
-          style: TextStyle(
+        Text(
+          'didnt_get_code'.tr,
+          style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w400,
             color: Color(0xFF6B7280),
@@ -173,7 +173,7 @@ class VerifyAccountView extends GetView<AuthController> {
         Obx(() => GestureDetector(
           onTap: controller.canResendOtp.value ? controller.resendAccountVerificationOtp : null,
           child: Text(
-            'Resend',
+            'resend'.tr,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -186,7 +186,7 @@ class VerifyAccountView extends GetView<AuthController> {
         const SizedBox(width: 16),
         Obx(() => controller.otpTimer.value > 0
             ? Text(
-          'Expires in ${(controller.otpTimer.value ~/ 60).toString().padLeft(1, '0')}:${(controller.otpTimer.value % 60).toString().padLeft(2, '0')}',
+          '${'expires_in'.tr} ${(controller.otpTimer.value ~/ 60).toString().padLeft(1, '0')}:${(controller.otpTimer.value % 60).toString().padLeft(2, '0')}',
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w400,

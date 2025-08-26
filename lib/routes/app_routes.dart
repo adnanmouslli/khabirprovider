@@ -18,9 +18,21 @@ abstract class AppRoutes {
 
   // صفحات الخدمات
   static const SERVICES = '/services';
+  static const ADD_SERVICE = '/add-service';
+
   static const SERVICE_DETAIL = '/service-detail';
 
+  static const OFFERS = '/offers';
+  static const REQUESTS = '/requests';
+
+  
+  static const INCOME = '/income';
+
+  
   // صفحات الملف الشخصي
   static const PROFILE = '/profile';
   static const SETTINGS = '/settings';
+
+    static const NOTIFICATIONS = '/notifications';
+
 }

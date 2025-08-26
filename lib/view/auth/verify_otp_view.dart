@@ -39,9 +39,9 @@ class VerifyOtpView extends GetView<AuthController> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Title
-                      const Text(
-                        'Forgot your Password?',
-                        style: TextStyle(
+                      Text(
+                        'forgot_your_password'.tr,
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                           color: AppColors.textPrimary,
@@ -52,9 +52,9 @@ class VerifyOtpView extends GetView<AuthController> {
                       const SizedBox(height: 16),
 
                       // Description
-                      const Text(
-                        'We sent you a 4 digit code to verify\nyour mobile number',
-                        style: TextStyle(
+                      Text(
+                        'verification_code_sent'.tr,
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: AppColors.textPrimary,
@@ -65,9 +65,9 @@ class VerifyOtpView extends GetView<AuthController> {
 
                       const SizedBox(height: 8),
 
-                      const Text(
-                        'Enter in the field below.',
-                        style: TextStyle(
+                      Text(
+                        'enter_field_below'.tr,
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
                           color: AppColors.textPrimary,
@@ -89,7 +89,7 @@ class VerifyOtpView extends GetView<AuthController> {
 
                       // Confirmation button
                       Obx(() => CustomButton(
-                        text: 'Confirmation',
+                        text: 'confirmation'.tr,
                         onPressed: controller.verifyOtpCode,
                         isLoading: controller.isLoading.value,
                         width: double.infinity,
@@ -113,7 +113,7 @@ class VerifyOtpView extends GetView<AuthController> {
   Widget _buildOtpInput() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: List.generate(4, (index) {
+      children: List.generate(6, (index) {
         return Container(
           width: 56,
           height: 56,
@@ -162,7 +162,7 @@ class VerifyOtpView extends GetView<AuthController> {
   }
 
   void _updateOtpCode(int index, String digit) {
-    String currentOtp = controller.otpController.text.padRight(4, ' ');
+    String currentOtp = controller.otpController.text.padRight(6, '0');
     List<String> otpDigits = currentOtp.split('');
 
     if (index < otpDigits.length) {
@@ -176,9 +176,9 @@ class VerifyOtpView extends GetView<AuthController> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
-          "Didn't get the code? ",
-          style: TextStyle(
+        Text(
+          'didnt_get_code'.tr,
+          style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: AppColors.textPrimary,
@@ -187,19 +187,18 @@ class VerifyOtpView extends GetView<AuthController> {
         Obx(() => GestureDetector(
           onTap: controller.canResendOtp.value ? controller.resendOtp : null,
           child: Text(
-            'Resend',
-            style: TextStyle(
+            'resend'.tr,
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w800,
-              color:  Colors.black ,
-
+              color: Colors.black,
             ),
           ),
         )),
         const SizedBox(width: 8),
         Obx(() => controller.otpTimer.value > 0
             ? Text(
-          'Expires in ${(controller.otpTimer.value ~/ 60).toString().padLeft(1, '0')}:${(controller.otpTimer.value % 60).toString().padLeft(2, '0')}',
+          '${'expires_in'.tr} ${(controller.otpTimer.value ~/ 60).toString().padLeft(1, '0')}:${(controller.otpTimer.value % 60).toString().padLeft(2, '0')}',
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w400,

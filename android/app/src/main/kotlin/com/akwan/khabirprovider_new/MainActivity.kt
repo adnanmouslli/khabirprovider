@@ -1,4 +1,4 @@
-package com.akwan.asd
+package com.akwan.khabirprovider_new
 
 import io.flutter.embedding.android.FlutterActivity
 

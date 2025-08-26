@@ -9,7 +9,7 @@ import '../../widgets/CustomTextField.dart';
 import '../../widgets/CustomDropdownField.dart';
 
 class SignUpView extends GetView<AuthController> {
-  final AuthController controller = Get.put(AuthController());
+  const SignUpView({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -67,9 +67,9 @@ class SignUpView extends GetView<AuthController> {
   }
 
   Widget _buildTitle() {
-    return const Text(
-      'Create An Account',
-      style: TextStyle(
+    return Text(
+      'create_an_account'.tr,
+      style: const TextStyle(
         fontSize: 20,
         fontWeight: FontWeight.w700,
         color: Color(0xFFEF4444),
@@ -85,9 +85,19 @@ class SignUpView extends GetView<AuthController> {
         // Full name field
         CustomTextField(
           controller: controller.nameController,
-          hintText: 'Enter your full name',
+          hintText: 'enter_full_name'.tr,
           prefixIcon: Icons.person_outline,
           keyboardType: TextInputType.name,
+        ),
+
+        const SizedBox(height: 16),
+
+        // Email field
+        CustomTextField(
+          controller: controller.signupEmailController,
+          hintText: 'enter_email_address'.tr,
+          prefixIcon: Icons.email_outlined,
+          keyboardType: TextInputType.emailAddress,
         ),
 
         const SizedBox(height: 16),
@@ -95,7 +105,7 @@ class SignUpView extends GetView<AuthController> {
         // Mobile number field
         CustomTextField(
           controller: controller.phoneController,
-          hintText: 'Enter your mobile number',
+          hintText: 'enter_mobile_number'.tr,
           prefixIcon: Icons.phone_outlined,
           keyboardType: TextInputType.phone,
         ),
@@ -104,7 +114,7 @@ class SignUpView extends GetView<AuthController> {
 
         // State dropdown
         Obx(() => CustomDropdownField(
-          hintText: 'Choose your state',
+          hintText: 'choose_your_state'.tr,
           prefixIcon: Icons.public,
           items: controller.states,
           selectedValue: controller.selectedState.value,
@@ -115,7 +125,7 @@ class SignUpView extends GetView<AuthController> {
 
         // City dropdown
         Obx(() => CustomDropdownField(
-          hintText: 'Choose your city',
+          hintText: 'choose_your_city'.tr,
           prefixIcon: Icons.location_city,
           items: controller.availableCities,
           selectedValue: controller.selectedCity.value,
@@ -126,25 +136,25 @@ class SignUpView extends GetView<AuthController> {
         const SizedBox(height: 16),
 
         // Services dropdown
-        Obx(() => CustomDropdownField(
-          hintText: 'Choose your services',
-          prefixIcon: Icons.build_outlined,
-          items: controller.services,
-          selectedValue: controller.selectedService.value,
-          onChanged: controller.onServiceChanged,
-        )),
+        // Obx(() => CustomDropdownField(
+        //   hintText: 'choose_your_services'.tr,
+        //   prefixIcon: Icons.build_outlined,
+        //   items: controller.services,
+        //   selectedValue: controller.selectedService.value,
+        //   onChanged: controller.onServiceChanged,
+        // )),
 
         const SizedBox(height: 16),
 
         // Password field
         Obx(() => CustomTextField(
-          controller: controller.passwordController,
-          hintText: 'Enter your password',
+          controller: controller.signupPasswordController,
+          hintText: 'enter_password'.tr,
           prefixIcon: Icons.lock_outline,
           suffixIcon: controller.isPasswordVisible.value
               ? Icons.visibility_off
               : Icons.visibility,
-          // onSuffixTap: controller.togglePasswordVisibility,
+          onSuffixTap: controller.togglePasswordVisibility,
           isPassword: !controller.isPasswordVisible.value,
         )),
 
@@ -153,12 +163,12 @@ class SignUpView extends GetView<AuthController> {
         // Confirm password field
         Obx(() => CustomTextField(
           controller: controller.confirmPasswordController,
-          hintText: 'Confirm your password',
+          hintText: 'confirm_your_password'.tr,
           prefixIcon: Icons.lock_outline,
           suffixIcon: controller.isConfirmPasswordVisible.value
               ? Icons.visibility_off
               : Icons.visibility,
-          // onSuffixTap: controller.toggleConfirmPasswordVisibility,
+          onSuffixTap: controller.toggleConfirmPasswordVisibility,
           isPassword: !controller.isConfirmPasswordVisible.value,
         )),
 
@@ -167,7 +177,7 @@ class SignUpView extends GetView<AuthController> {
         // Description field
         CustomTextField(
           controller: controller.descriptionController,
-          hintText: 'Enter your description',
+          hintText: 'enter_description'.tr,
           prefixIcon: Icons.description_outlined,
           maxLines: 3,
           keyboardType: TextInputType.multiline,
@@ -209,8 +219,8 @@ class SignUpView extends GetView<AuthController> {
             Expanded(
               child: Obx(() => Text(
                 controller.selectedProfileImage.value != null
-                    ? 'Photo selected'
-                    : 'Choose photo to upload',
+                    ? 'photo_selected'.tr
+                    : 'choose_photo_upload'.tr,
                 style: TextStyle(
                   fontSize: 16,
                   color: controller.selectedProfileImage.value != null
@@ -268,25 +278,25 @@ class SignUpView extends GetView<AuthController> {
         const SizedBox(width: 12),
         Expanded(
           child: RichText(
-            text: const TextSpan(
-              style: TextStyle(
+            text: TextSpan(
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
                 color: Color(0xFF374151),
               ),
               children: [
-                TextSpan(text: 'I agree to the '),
+                TextSpan(text: 'agree_terms_conditions'.tr),
                 TextSpan(
-                  text: 'terms',
-                  style: TextStyle(
+                  text: 'terms'.tr,
+                  style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF374151),
                   ),
                 ),
-                TextSpan(text: ' and '),
+                TextSpan(text: 'and'.tr),
                 TextSpan(
-                  text: 'conditions',
-                  style: TextStyle(
+                  text: 'conditions'.tr,
+                  style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF374151),
                   ),
@@ -301,7 +311,7 @@ class SignUpView extends GetView<AuthController> {
 
   Widget _buildSignUpButton() {
     return Obx(() => CustomButton(
-      text: 'SIGN UP',
+      text: 'sign_up'.tr.toUpperCase(),
       onPressed: controller.register,
       isLoading: controller.isLoading.value,
       enabled: controller.isTermsAccepted.value,
@@ -318,7 +328,7 @@ class SignUpView extends GetView<AuthController> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          'Have an account already? ',
+          'have_account_already'.tr,
           style: AppTextStyles.bodyMedium.copyWith(
             color: const Color(0xFF6B7280),
           ),
@@ -326,7 +336,7 @@ class SignUpView extends GetView<AuthController> {
         GestureDetector(
           onTap: () => Get.toNamed(AppRoutes.LOGIN),
           child: Text(
-            'Log in',
+            'log_in_link'.tr,
             style: AppTextStyles.linkText.copyWith(
               color: AppColors.primary,
             ),

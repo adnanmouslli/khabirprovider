@@ -42,6 +42,20 @@ dependencies:
   get:
   shared_preferences: ^2.2.2
   image_picker:
+  dio: ^5.8.0+1
+  url_launcher: ^6.2.1
+  http:
+  path_provider:
+  icons_plus:
+
+  firebase_core: ^2.24.2
+
+  firebase_messaging: ^14.7.10
+  permission_handler:
+
+  socket_io_client: ^2.0.3+1
+  geolocator: ^8.2.0
+
 
 dev_dependencies:
   flutter_test:
