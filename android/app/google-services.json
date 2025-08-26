@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "387321964868",
+    "project_id": "khabir-e3989",
+    "storage_bucket": "khabir-e3989.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:387321964868:android:f8f3cb3a99acc24f130f11",
+        "android_client_info": {
+          "package_name": "com.akwan.khabirprovider_new"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHO1IFaUDdDK9RTUxqxX6KP2P9v7jbfNA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
