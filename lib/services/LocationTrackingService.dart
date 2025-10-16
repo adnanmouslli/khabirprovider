@@ -14,7 +14,7 @@ class LocationTrackingService extends GetxService {
   String? _currentOrderId;
 
   // Socket URL - استبدل هذا بعنوان الخادم الخاص بك
-  static const String _socketUrl = 'ws://31.97.71.187:3000/location-tracking';
+  static const String _socketUrl = '${AppConfig.socketUrl}/location-tracking';
 
   @override
   void onInit() {
@@ -26,6 +26,9 @@ class LocationTrackingService extends GetxService {
   void _initSocket() {
     try {
       final token = _storageService.userToken;
+      print("===============");
+      print(token);
+      print("===============");
 
       _socket = IO.io(
           _socketUrl,
@@ -33,6 +36,7 @@ class LocationTrackingService extends GetxService {
               .setAuth({
                 'token': token,
               })
+              // .setExtraHeaders({'auth': {'token': token}})
               .setTransports(['websocket'])
               .enableAutoConnect()
               .enableForceNew()
@@ -110,6 +114,9 @@ class LocationTrackingService extends GetxService {
   }
 
   // إرسال الموقع الحالي
+  // double _testLat = 36.2041472;
+  // double _testLng = 37.1269131;
+
   Future<void> _sendCurrentLocation() async {
     try {
       if (!_isTracking ||
@@ -120,6 +127,7 @@ class LocationTrackingService extends GetxService {
 
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
       );
 
       _socket?.emit('update_location', {
@@ -127,9 +135,10 @@ class LocationTrackingService extends GetxService {
         'longitude': position.longitude,
         'accuracy': position.accuracy,
         'orderId': _currentOrderId,
+        'timestamp': DateTime.now().toIso8601String(),
+        'speed': position.speed,
+        'heading': position.heading,
       });
-
-      print('📍 Location sent: ${position.latitude}, ${position.longitude}');
     } catch (e) {
       print('Error sending location: $e');
     }

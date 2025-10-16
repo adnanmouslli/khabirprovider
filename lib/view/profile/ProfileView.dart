@@ -185,7 +185,6 @@ class ProfileView extends GetView<ProfileController> {
                 },
               ),
             ),
-
           ),
         ],
       ),
@@ -194,226 +193,150 @@ class ProfileView extends GetView<ProfileController> {
 
   Widget _buildProfileHeader() {
     return Obx(() => Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              // Profile Image with camera icon
-              Stack(
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(40),
-                      border: Border.all(color: Colors.grey[300]!, width: 2),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(38),
-                      child: controller.user.value?.image != null &&
-                          controller.user.value!.image!.isNotEmpty
-                          ? Image.network(
-                        controller.user.value!.image!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildDefaultProfileImage();
-                        },
-                      )
-                          : _buildDefaultProfileImage(),
-                    ),
-                  ),
-                  // Camera icon for updating image
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: controller.updateProfileImage,
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEF4444),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.3),
-                              spreadRadius: 1,
-                              blurRadius: 3,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Verified badge
-                  if (controller.isVerified)
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: const Icon(
-                          Icons.check,
-                          color: Colors.white,
-                          size: 14,
-                        ),
-                      ),
-                    ),
-                ],
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
-
-              const SizedBox(width: 16),
-
-              // Name and Phone
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            controller.userName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  // Profile Image with camera icon
+                  Stack(
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(40),
+                          border:
+                              Border.all(color: Colors.grey[300]!, width: 2),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(38),
+                          child: controller.user.value?.image != null &&
+                                  controller.user.value!.image!.isNotEmpty
+                              ? Image.network(
+                                  controller.user.value!.image!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return _buildDefaultProfileImage();
+                                  },
+                                )
+                              : _buildDefaultProfileImage(),
+                        ),
+                      ),
+                      // Camera icon for updating image
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: controller.updateProfileImage,
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.3),
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
                             ),
-                            overflow: TextOverflow.ellipsis,
+                            child: const Icon(
+                              Icons.camera_alt,
+                              color: Colors.white,
+                              size: 14,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        // Verified badge
-                        if (controller.isVerified)
-                          Container(
-                            width: 16,
-                            height: 16,
-                            decoration: const BoxDecoration(
+                      ),
+                      // Verified badge
+                      if (controller.isVerified)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
                               color: Colors.blue,
                               shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
                             ),
                             child: const Icon(
                               Icons.check,
                               color: Colors.white,
-                              size: 10,
+                              size: 14,
                             ),
                           ),
+                        ),
+                    ],
+                  ),
+
+                  const SizedBox(width: 16),
+
+                  // Name and Phone
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                controller.userName,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          controller.userPhone,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      controller.userPhone,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    if (controller.userEmail.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        controller.userEmail,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+                  ),
 
-              // Edit button
-              GestureDetector(
-                onTap: controller.editProfile,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'edit'.tr,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // Address section
-          if (controller.userAddress.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.location_on_outlined,
-                    size: 16,
-                    color: Colors.grey[600],
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      controller.userAddress,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ),
+                  // Edit button
                   GestureDetector(
-                    onTap: controller.editAddress,
+                    onTap: controller.editProfile,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey[300]!),
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         'edit'.tr,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: Colors.grey[600],
                           fontWeight: FontWeight.w500,
                         ),
@@ -422,52 +345,16 @@ class ProfileView extends GetView<ProfileController> {
                   ),
                 ],
               ),
-            ),
-          ] else ...[
-            const SizedBox(height: 16),
-            GestureDetector(
-              onTap: controller.editAddress,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[200]!, style: BorderStyle.solid),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.add_location_outlined,
-                      size: 16,
-                      color: Colors.grey[500],
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      controller.isArabic ? 'إضافة عنوان' : 'Add Address',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[500],
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    ));
+            ],
+          ),
+        ));
   }
 
   Widget _buildDefaultProfileImage() {
     // إذا كان لديك رابط الصورة، قم بتحميلها
 
-
     if (controller.user.value?.image != null &&
         controller.user.value!.image!.isNotEmpty) {
-
       // تأكد من أن الرابط كامل (يحتوي على http/https)
       String imageUrl = controller.user.value!.image!;
 
@@ -487,7 +374,7 @@ class ProfileView extends GetView<ProfileController> {
               child: CircularProgressIndicator(
                 value: loadingProgress.expectedTotalBytes != null
                     ? loadingProgress.cumulativeBytesLoaded /
-                    loadingProgress.expectedTotalBytes!
+                        loadingProgress.expectedTotalBytes!
                     : null,
                 strokeWidth: 2,
                 valueColor: AlwaysStoppedAnimation<Color>(
@@ -509,7 +396,6 @@ class ProfileView extends GetView<ProfileController> {
           );
         },
       );
-
     }
 
     // إذا لم يكن هناك رابط صورة، عرض الأيقونة الافتراضية
@@ -530,26 +416,26 @@ class ProfileView extends GetView<ProfileController> {
           icon: Icons.language,
           title: 'language'.tr,
           trailing: Obx(() => Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                controller.selectedLanguage == 'ar'
-                    ? 'arabic_lang'.tr
-                    : 'english_lang'.tr,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: Colors.grey,
-              ),
-            ],
-          )),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    controller.selectedLanguage == 'ar'
+                        ? 'arabic_lang'.tr
+                        : 'english_lang'.tr,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
+                ],
+              )),
           onTap: controller.changeLanguage,
         ),
 
@@ -585,41 +471,40 @@ class ProfileView extends GetView<ProfileController> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Obx(() => Text(
-                controller.isOnline.value ? 'online'.tr : 'offline'.tr,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              )),
+                    controller.onlineStatus ? 'online'.tr : 'offline'.tr,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  )),
               const SizedBox(width: 12),
               Obx(() => Container(
-                width: 40,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: controller.isOnline.value
-                      ? Colors.green
-                      : Colors.grey,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Stack(
-                  children: [
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 200),
-                      left: controller.isOnline.value ? 18 : 2,
-                      top: 2,
-                      child: Container(
-                        width: 20,
-                        height: 20,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
+                    width: 40,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color:
+                          controller.onlineStatus ? Colors.green : Colors.grey,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
-                ),
-              )),
+                    child: Stack(
+                      children: [
+                        AnimatedPositioned(
+                          duration: const Duration(milliseconds: 200),
+                          left: controller.onlineStatus ? 18 : 2,
+                          top: 2,
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
             ],
           ),
           onTap: controller.toggleOnlineStatus,
@@ -627,17 +512,98 @@ class ProfileView extends GetView<ProfileController> {
 
         const SizedBox(height: 20),
 
-        _buildProfileOption(
-          icon: Icons.description,
-          title: 'terms_and_conditions'.tr,
-          onTap: controller.openTermsAndConditions,
-        ),
+        // تحديث للشروط والأحكام مع إظهار حالة التحميل
+        Obx(() => _buildProfileOption(
+              icon: Icons.description,
+              title: 'terms_and_conditions'.tr,
+              trailing: controller.isLoadingTerms.value
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
+                      ),
+                    )
+                  : !controller.hasTermsUrl
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              controller.isArabic
+                                  ? 'غير متوفر'
+                                  : 'Not available',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[500],
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: Colors.grey[400],
+                            ),
+                          ],
+                        )
+                      : const Icon(
+                          Icons.arrow_forward_ios,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
+              onTap: controller.hasTermsUrl && !controller.isLoadingTerms.value
+                  ? controller.openTermsAndConditions
+                  : null,
+            )),
 
-        _buildProfileOption(
-          icon: Icons.privacy_tip_outlined,
-          title: 'privacy_policy'.tr,
-          onTap: controller.openPrivacyPolicy,
-        ),
+        // تحديث لسياسة الخصوصية مع إظهار حالة التحميل
+        Obx(() => _buildProfileOption(
+              icon: Icons.privacy_tip_outlined,
+              title: 'privacy_policy'.tr,
+              trailing: controller.isLoadingTerms.value
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
+                      ),
+                    )
+                  : !controller.hasPrivacyUrl
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              controller.isArabic
+                                  ? 'غير متوفر'
+                                  : 'Not available',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[500],
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: Colors.grey[400],
+                            ),
+                          ],
+                        )
+                      : const Icon(
+                          Icons.arrow_forward_ios,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
+              onTap:
+                  controller.hasPrivacyUrl && !controller.isLoadingTerms.value
+                      ? controller.openPrivacyPolicy
+                      : null,
+            )),
 
         _buildProfileOption(
           icon: Icons.support_agent,
@@ -760,7 +726,8 @@ class ProfileView extends GetView<ProfileController> {
             alignment: WrapAlignment.center,
             children: [
               // WhatsApp
-              if (socialMedia.whatsapp != null && socialMedia.whatsapp!.isNotEmpty)
+              if (socialMedia.whatsapp != null &&
+                  socialMedia.whatsapp!.isNotEmpty)
                 _buildSocialIcon(
                   color: const Color(0xFF25D366),
                   icon: Bootstrap.whatsapp,
@@ -768,7 +735,8 @@ class ProfileView extends GetView<ProfileController> {
                 ),
 
               // Instagram
-              if (socialMedia.instagram != null && socialMedia.instagram!.isNotEmpty)
+              if (socialMedia.instagram != null &&
+                  socialMedia.instagram!.isNotEmpty)
                 _buildSocialIcon(
                   color: const Color(0xFFE4405F),
                   icon: Bootstrap.instagram,
@@ -776,7 +744,8 @@ class ProfileView extends GetView<ProfileController> {
                 ),
 
               // Facebook
-              if (socialMedia.facebook != null && socialMedia.facebook!.isNotEmpty)
+              if (socialMedia.facebook != null &&
+                  socialMedia.facebook!.isNotEmpty)
                 _buildSocialIcon(
                   color: const Color(0xFF1877F2),
                   icon: Bootstrap.facebook,
@@ -784,7 +753,8 @@ class ProfileView extends GetView<ProfileController> {
                 ),
 
               // Snapchat
-              if (socialMedia.snapchat != null && socialMedia.snapchat!.isNotEmpty)
+              if (socialMedia.snapchat != null &&
+                  socialMedia.snapchat!.isNotEmpty)
                 _buildSocialIcon(
                   color: const Color(0xFFFFFC00),
                   icon: Bootstrap.snapchat,

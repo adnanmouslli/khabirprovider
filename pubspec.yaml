@@ -55,12 +55,28 @@ dependencies:
 
   socket_io_client: ^2.0.3+1
   geolocator: ^8.2.0
+  pin_code_fields: 
+  country_code_picker:
 
+  # المكتبات الجديدة المطلوبة للمكالمات البسيطة
+  audioplayers: ^5.2.1          # لتشغيل نغمة الرنين
+  overlay_support: ^2.1.0       # لعرض الواجهة العائمة
+  wakelock: ^0.6.2             # لمنع إغلاق الشاشة (اختياري)
+  flutter_local_notifications: ^17.2.2
+  syncfusion_flutter_pdfviewer:
+  flutter_launcher_icons:
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
+
+  
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
@@ -84,7 +100,9 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/images/onboarding/
+    - assets/sounds/
 
+  
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
 

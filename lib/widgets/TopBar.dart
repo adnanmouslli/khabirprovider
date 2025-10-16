@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:icons_plus/icons_plus.dart';
 import 'package:khabir/utils/colors.dart';
 
 class TopBar extends StatelessWidget {
@@ -149,7 +150,7 @@ class TopBar extends StatelessWidget {
                     ),
                     child: const Center(
                       child: Icon(
-                        Icons.chat_outlined,
+                        Bootstrap.whatsapp,
                         color: Colors.black54,
                         size: 24,
                       ),

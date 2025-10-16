@@ -186,9 +186,9 @@ class OnboardingPage1 extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Column(
         children: [
-          // Image
+          // Image - تقليل الارتفاع لإعطاء مساحة أكثر للنصوص
           SizedBox(
-            height: Get.height * 0.6,
+            height: Get.height * 0.45,
             width: Get.width * 0.8,
             child: Container(
               decoration: BoxDecoration(
@@ -204,11 +204,12 @@ class OnboardingPage1 extends StatelessWidget {
             ),
           ),
 
+          const SizedBox(height: 20),
 
           // Dots indicator
           _buildDotsIndicator(0),
 
-          const SizedBox(height: 30),
+          const SizedBox(height: 40), // زيادة المساحة
 
           // Title
           Text(
@@ -221,20 +222,23 @@ class OnboardingPage1 extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 24), // زيادة المساحة
 
           // Subtitle
-          Text(
-            page.subtitleKey.tr,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              color: AppColors.textSecondary,
-              height: 1.5,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              page.subtitleKey.tr,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                color: AppColors.textSecondary,
+                height: 1.6,
+              ),
             ),
           ),
 
-          const Spacer(),
+          const Spacer(flex: 2), // إعطاء مساحة مرنة أكبر
 
           // Next button only
           SizedBox(
@@ -260,7 +264,7 @@ class OnboardingPage1 extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 30),
+          const SizedBox(height: 40), // زيادة المساحة السفلى
         ],
       ),
     );
@@ -305,9 +309,9 @@ class OnboardingPage2 extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Column(
         children: [
-          // Image
+          // Image - تقليل الارتفاع
           SizedBox(
-            height: Get.height * 0.6,
+            height: Get.height * 0.45,
             width: Get.width * 0.8,
             child: Container(
               decoration: BoxDecoration(
@@ -323,11 +327,12 @@ class OnboardingPage2 extends StatelessWidget {
             ),
           ),
 
+          const SizedBox(height: 20),
 
           // Dots indicator
           _buildDotsIndicator(1),
 
-          const SizedBox(height: 30),
+          const SizedBox(height: 40), // زيادة المساحة
 
           // Title
           Text(
@@ -340,20 +345,23 @@ class OnboardingPage2 extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 24), // زيادة المساحة
 
           // Subtitle
-          Text(
-            page.subtitleKey.tr,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              color: AppColors.textPrimary,
-              height: 1.5,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              page.subtitleKey.tr,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                color: AppColors.textPrimary,
+                height: 1.6,
+              ),
             ),
           ),
 
-          const Spacer(),
+          const Spacer(flex: 2), // إعطاء مساحة مرنة أكبر
 
           // Back and Next buttons
           Row(
@@ -407,7 +415,7 @@ class OnboardingPage2 extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 30),
+          const SizedBox(height: 40), // زيادة المساحة السفلى
         ],
       ),
     );
@@ -452,10 +460,10 @@ class OnboardingPage3 extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Column(
         children: [
-          // Image
+          // Image - تقليل الارتفاع
           SizedBox(
-            height: Get.height * 0.6,
-            width: Get.width * 0.6,
+            height: Get.height * 0.42,
+            width: Get.width * 0.7,
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
@@ -470,12 +478,12 @@ class OnboardingPage3 extends StatelessWidget {
             ),
           ),
 
-
+          const SizedBox(height: 20),
 
           // Dots indicator
           _buildDotsIndicator(2),
 
-          const SizedBox(height: 30),
+          const SizedBox(height: 40), // زيادة المساحة
 
           // Title
           Text(
@@ -488,21 +496,26 @@ class OnboardingPage3 extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 24), // زيادة المساحة
 
           // Subtitle (if available)
           if (page.subtitleKey.isNotEmpty)
-            Text(
-              page.subtitleKey.tr,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.textSecondary,
-                height: 1.5,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text(
+                page.subtitleKey.tr,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: AppColors.textSecondary,
+                  height: 1.6,
+                ),
               ),
             ),
 
-          const Spacer(),
+          if (page.subtitleKey.isNotEmpty) const SizedBox(height: 20),
+
+          const Spacer(flex: 2), // إعطاء مساحة مرنة أكبر
 
           // Provider and User buttons
           Row(
@@ -557,7 +570,7 @@ class OnboardingPage3 extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 30),
+          const SizedBox(height: 40), // زيادة المساحة السفلى
         ],
       ),
     );

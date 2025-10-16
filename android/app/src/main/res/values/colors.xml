@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ألوان أساسية للإشعارات -->
+    <color name="notification_color">#2196F3</color>
+    <color name="call_notification_color">#4CAF50</color>
+    
+    <!-- ألوان أساسية -->
+    <color name="primary_color">#2196F3</color>
+    <color name="success_color">#4CAF50</color>
+    <color name="error_color">#F44336</color>
+    <color name="warning_color">#FF9800</color>
+</resources>

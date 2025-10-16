@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart' as dio;
 import 'package:get/get.dart';
+import 'package:flutter/material.dart';
 import '../utils/app_config.dart';
+import '../routes/app_routes.dart';
 import 'storage_service.dart';
 
 class DioService {
@@ -42,6 +44,12 @@ class DioService {
             print('ERROR[${error.response?.statusCode}] => MESSAGE: ${error.message}');
             print('ERROR DATA: ${error.response?.data}');
           }
+
+          // التحقق من رمز الاستجابة 401 (غير مخول)
+          if (error.response?.statusCode == 401) {
+            _handleUnauthorized();
+          }
+
           handler.next(error);
         },
       ),
@@ -52,12 +60,38 @@ class DioService {
     _dio.options.sendTimeout = Duration(seconds: AppConfig.sendTimeoutSeconds);
   }
 
+  // معالجة حالة عدم التخويل (401)
+  Future<void> _handleUnauthorized() async {
+    try {
+      // مسح البيانات المحلية
+      await _storageService.clearUserSession();
+      clearToken();
+
+      // عرض رسالة للمستخدم
+      Get.snackbar(
+        'انتهت جلسة العمل',
+        'يرجى تسجيل الدخول مرة أخرى',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        duration: Duration(seconds: 3),
+      );
+
+      // التوجه إلى صفحة تسجيل الدخول
+      Get.offAllNamed(AppRoutes.LOGIN);
+    } catch (e) {
+      if (AppConfig.enableLogging) {
+        print('Error during unauthorized handling: $e');
+      }
+    }
+  }
+
   // GET request
   Future<dio.Response> get(
-    String path, {
-    Map<String, dynamic>? queryParameters,
-    dio.Options? options,
-  }) async {
+      String path, {
+        Map<String, dynamic>? queryParameters,
+        dio.Options? options,
+      }) async {
     try {
       final response = await _dio.get(
         path,
@@ -72,11 +106,11 @@ class DioService {
 
   // POST request
   Future<dio.Response> post(
-    String path, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-    dio.Options? options,
-  }) async {
+      String path, {
+        dynamic data,
+        Map<String, dynamic>? queryParameters,
+        dio.Options? options,
+      }) async {
     try {
       final response = await _dio.post(
         path,
@@ -92,11 +126,11 @@ class DioService {
 
   // PUT request
   Future<dio.Response> put(
-    String path, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-    dio.Options? options,
-  }) async {
+      String path, {
+        dynamic data,
+        Map<String, dynamic>? queryParameters,
+        dio.Options? options,
+      }) async {
     try {
       final response = await _dio.put(
         path,
@@ -112,11 +146,11 @@ class DioService {
 
   // DELETE request
   Future<dio.Response> delete(
-    String path, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-    dio.Options? options,
-  }) async {
+      String path, {
+        dynamic data,
+        Map<String, dynamic>? queryParameters,
+        dio.Options? options,
+      }) async {
     try {
       final response = await _dio.delete(
         path,
@@ -132,11 +166,11 @@ class DioService {
 
   // POST with multipart (for file uploads)
   Future<dio.Response> postMultipart(
-    String path, {
-    required Map<String, dynamic> data,
-    Map<String, dynamic>? queryParameters,
-    dio.Options? options,
-  }) async {
+      String path, {
+        required Map<String, dynamic> data,
+        Map<String, dynamic>? queryParameters,
+        dio.Options? options,
+      }) async {
     try {
       final formData = dio.FormData.fromMap(data);
 

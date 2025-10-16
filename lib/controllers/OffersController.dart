@@ -1,24 +1,468 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
+import 'package:khabir/services/language_service.dart';
 import '../models/offer_model.dart';
 import '../services/offers_service.dart';
 
 class OffersController extends GetxController {
   final OffersService _offersService = OffersService();
 
-  // Observable lists
+  final LanguageService _languageService = Get.find<LanguageService>();
+
+  bool get isArabic => _languageService.isArabic;
+
+  // القوائم القابلة للمراقبة
   var providerServices = <ProviderServiceModel>[].obs;
   var myOffers = <OfferModel>[].obs;
 
-  // Loading states
+  // حالات التحميل
   var isLoading = false.obs;
   var isLoadingOffers = false.obs;
   var isCreatingOffer = false.obs;
   var isDeletingOffer = false.obs;
 
-  // Service-specific loading states
+  // حالات التحميل الخاصة بالخدمة
   var creatingOfferServiceId = Rxn<int>();
   var deletingOfferId = Rxn<int>();
+
+  var isEditingOffer = false.obs;
+  var editingOfferId = Rxn<int>();
+
+  // دالة تعديل العرض - جديدة
+  void editOffer(OfferModel offer) {
+    
+    final TextEditingController descriptionController = TextEditingController(
+      text: offer.description,
+    );
+    final TextEditingController offerPriceController = TextEditingController(
+      text: offer.offerPrice.toString(),
+    );
+
+    // متغير لحفظ تاريخ انتهاء العرض
+    DateTime? selectedEndDate = offer.endDate; // استخدام التاريخ الحالي
+
+    Get.dialog(
+      _buildCustomDialog(
+        title: '${isArabic ? 'تعديل العرض' : 'Edit Offer'}',
+        content: StatefulBuilder(
+          builder: (context, setState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+              
+                // حقل الوصف
+                TextField(
+                  controller: descriptionController,
+                  decoration: InputDecoration(
+                    labelText: 'description'.tr,
+                    hintText: offer.description ,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFEF4444)),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                    prefixIcon:
+                        Icon(Icons.description, color: Colors.grey[600]),
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+
+                // حقل سعر العرض
+                TextField(
+                  controller: offerPriceController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'offer_price'.tr,
+                    suffixText: 'omr'.tr,
+                    helperText:
+                        '${'original_price'.tr}: ${offer.originalPrice} ' +
+                            'omr'.tr,
+                    helperStyle: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFEF4444)),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                    prefixIcon:
+                        Icon(Icons.attach_money, color: Colors.grey[600]),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // منتقي تاريخ الانتهاء - جديد
+                InkWell(
+                  onTap: () async {
+                    final DateTime now = DateTime.now();
+                    final DateTime initialDate =
+                        selectedEndDate ?? now.add(const Duration(days: 1));
+
+                    final DateTime? picked = await showDatePicker(
+                      context: context,
+                      initialDate: initialDate.isAfter(now)
+                          ? initialDate
+                          : now.add(const Duration(days: 1)),
+                      firstDate: now.add(const Duration(days: 1)),
+                      lastDate: now.add(const Duration(days: 365)),
+                      locale: const Locale('ar'),
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.light(
+                              primary: Color(0xFFEF4444),
+                              onPrimary: Colors.white,
+                              onSurface: Colors.black,
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        selectedEndDate = picked;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: selectedEndDate != null
+                            ? const Color(0xFFEF4444).withOpacity(0.3)
+                            : Colors.grey[300]!,
+                        width: selectedEndDate != null ? 1.5 : 1,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      color: selectedEndDate != null
+                          ? const Color(0xFFEF4444).withOpacity(0.05)
+                          : Colors.grey[50],
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_rounded,
+                          color: selectedEndDate != null
+                              ? const Color(0xFFEF4444)
+                              : Colors.grey[600],
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'expires_in'.tr,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: selectedEndDate != null
+                                      ? const Color(0xFFEF4444)
+                                      : Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                selectedEndDate != null
+                                    ? _formatDate(selectedEndDate!)
+                                    : isArabic
+                                        ? 'اختر تاريخ الانتهاء'
+                                        : 'Select expiry date',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: selectedEndDate != null
+                                      ? Colors.black87
+                                      : Colors.grey[500],
+                                  fontWeight: selectedEndDate != null
+                                      ? FontWeight.w500
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: selectedEndDate != null
+                              ? const Color(0xFFEF4444)
+                              : Colors.grey[400],
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          _buildCustomButton(
+            text: 'cancel'.tr,
+            onPressed: () => Get.back(),
+          ),
+          Obx(() => _buildCustomButton(
+                text: 'update'.tr,
+                isPrimary: true,
+                onPressed: (isEditingOffer.value &&
+                        editingOfferId.value == offer.id)
+                    ? null
+                    : () {
+                        final description = descriptionController.text.trim();
+                        final offerPriceText = offerPriceController.text.trim();
+
+                    
+
+                        if (description.isEmpty) {
+                          _showErrorSnackbar(
+                              'error'.tr, 'description_required'.tr);
+                          return;
+                        }
+
+                        if (offerPriceText.isEmpty) {
+                          _showErrorSnackbar('error'.tr, 'price_required'.tr);
+                          return;
+                        }
+
+                        final offerPrice = double.tryParse(offerPriceText);
+                        if (offerPrice == null || offerPrice <= 0) {
+                          _showErrorSnackbar(
+                              'error'.tr, 'enter_valid_price'.tr);
+                          return;
+                        }
+
+                        if (offerPrice >= offer.originalPrice) {
+                          _showErrorSnackbar(
+                              'error'.tr, 'offer_price_must_be_less'.tr);
+                          return;
+                        }
+
+                        if (selectedEndDate == null) {
+                          _showErrorSnackbar('error'.tr, 'select_end_date'.tr);
+                          return;
+                        }
+
+                        if (selectedEndDate!.isBefore(DateTime.now())) {
+                          _showErrorSnackbar(
+                              'error'.tr, 'end_date_must_be_future'.tr);
+                          return;
+                        }
+
+                        Get.back();
+                        _updateOffer(offer, description, offerPrice,
+                            selectedEndDate!);
+                      },
+                child:
+                    (isEditingOffer.value && editingOfferId.value == offer.id)
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : null,
+              )),
+        ],
+      ),
+    );
+  }
+
+  // تنفيذ تحديث العرض - جديدة
+  Future<void> _updateOffer(
+    OfferModel offer,
+    String description,
+    double offerPrice,
+    DateTime endDate, // إضافة تاريخ الانتهاء
+  ) async {
+    try {
+      isEditingOffer.value = true;
+      editingOfferId.value = offer.id;
+
+      final request = UpdateOfferRequest(
+        description: description,
+        offerPrice: offerPrice,
+        endDate: endDate, // إضافة تاريخ الانتهاء
+      );
+
+      final updatedOffer = await _offersService.updateOffer(offer.id, request);
+
+      // تحديث قائمة العروض الشخصية
+      final offerIndex = myOffers.indexWhere((o) => o.id == offer.id);
+      if (offerIndex != -1) {
+        myOffers[offerIndex] = updatedOffer;
+      }
+
+      // تحديث خدمة مقدم الخدمة
+      final serviceIndex =
+          providerServices.indexWhere((s) => s.serviceId == offer.serviceId);
+      if (serviceIndex != -1) {
+        final updatedService = providerServices[serviceIndex];
+        providerServices[serviceIndex] = ProviderServiceModel(
+          id: updatedService.id,
+          serviceId: updatedService.serviceId,
+          providerId: updatedService.providerId,
+          price: updatedService.price,
+          isActive: updatedService.isActive,
+          service: updatedService.service,
+          activeOffer: updatedOffer,
+        );
+      }
+
+      _showSuccessSnackbar('success'.tr, 'offer_updated_successfully'.tr);
+    } catch (e) {
+      _showErrorSnackbar('error'.tr, e.toString());
+    } finally {
+      isEditingOffer.value = false;
+      editingOfferId.value = null;
+    }
+  }
+
+  // تحديث دالة isOfferLoading لتشمل التعديل
+  bool isOfferLoading(int offerId, String operation) {
+    switch (operation) {
+      case 'delete':
+        return isDeletingOffer.value && deletingOfferId.value == offerId;
+      case 'edit':
+        return isEditingOffer.value && editingOfferId.value == offerId;
+      default:
+        return false;
+    }
+  }
+
+  // Custom Dialog Widget المحسن للسكرول
+  Widget _buildCustomDialog({
+    required String title,
+    required Widget content,
+    required List<Widget> actions,
+  }) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      // إضافة insetPadding لتجنب overflow عند ظهور الكيبورد
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: 20.0,
+        vertical: 24.0,
+      ),
+      child: Container(
+        // استخدام constraints لتحديد الحد الأقصى للارتفاع
+        constraints: BoxConstraints(
+          maxHeight: Get.height * 0.8,
+        ),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // العنوان ثابت
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // المحتوى قابل للتمرير
+            Flexible(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: content,
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // الأزرار ثابتة في الأسفل
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: actions.asMap().entries.map((entry) {
+                int index = entry.key;
+                Widget action = entry.value;
+                return Container(
+                  margin: EdgeInsets.only(
+                    left: isArabic && index > 0 ? 0 : (index > 0 ? 12 : 0),
+                    right: isArabic && index > 0 ? 12 : 0,
+                  ),
+                  child: action,
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Custom Button Widget
+  Widget _buildCustomButton({
+    required String text,
+    required VoidCallback? onPressed,
+    bool isPrimary = false,
+    bool isDestructive = false,
+    Widget? child,
+  }) {
+    Color backgroundColor = Colors.transparent;
+    Color foregroundColor = Colors.grey[600]!;
+    BorderSide borderSide = BorderSide(color: Colors.grey[300]!, width: 1);
+
+    if (isPrimary) {
+      backgroundColor = const Color(0xFFEF4444);
+      foregroundColor = Colors.white;
+      borderSide = BorderSide.none;
+    } else if (isDestructive) {
+      backgroundColor = Colors.transparent;
+      foregroundColor = Colors.red;
+      borderSide = BorderSide(color: Colors.red[300]!, width: 1);
+    }
+
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: borderSide,
+        ),
+        elevation: 0,
+      ),
+      child: child ??
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+    );
+  }
 
   @override
   void onInit() {
@@ -29,25 +473,18 @@ class OffersController extends GetxController {
   // تحميل البيانات الأولية
   Future<void> loadInitialData() async {
     loadProviderServices();
-
-    // await Future.wait([
-    //   loadMyOffers(),
-    //   loadProviderServices(),
-    // ]);
-    // // ربط العروض بالخدمات بعد تحميل البيانات
-    // _linkOffersToServices();
   }
 
-  // جلب خدمات المزود
-  // عند جلب خدمات المزود
+  // جلب خدمات مقدم الخدمة
   Future<void> loadProviderServices() async {
     try {
       isLoading.value = true;
       final services = await _offersService.getProviderServicesForOffers();
 
-      // تأكد أن كل خدمة محدثة بالـ activeOffer إذا فيه
+      // التأكد من تحديث كل خدمة بالعرض النشط إذا كان موجودًا
       providerServices.value = services.map((service) {
-        final hasActiveOffer = service.activeOffer != null && service.activeOffer! != null;
+        final hasActiveOffer =
+            service.activeOffer != null && service.activeOffer! != null;
         return ProviderServiceModel(
           id: service.id,
           serviceId: service.serviceId,
@@ -59,123 +496,240 @@ class OffersController extends GetxController {
         );
       }).toList();
     } catch (e) {
-      _showErrorSnackbar('خطأ في جلب خدماتك', e.toString());
+      _showErrorSnackbar('error'.tr, e.toString());
     } finally {
       isLoading.value = false;
     }
   }
 
-
-  // // جلب عروضي
-  // Future<void> loadMyOffers() async {
-  //   try {
-  //     isLoadingOffers.value = true;
-  //     final offers = await _offersService.getMyOffers();
-  //     myOffers.value = offers;
-  //   } catch (e) {
-  //     _showErrorSnackbar('خطأ في جلب عروضك', e.toString());
-  //   } finally {
-  //     isLoadingOffers.value = false;
-  //   }
-  // }
-
-
   // إضافة عرض لخدمة
   void addOfferToService(ProviderServiceModel service) {
-    final TextEditingController titleController = TextEditingController();
     final TextEditingController descriptionController = TextEditingController();
     final TextEditingController offerPriceController = TextEditingController();
 
-    // تعيين السعر الأصلي افتراضياً
+    // متغير لحفظ تاريخ انتهاء العرض
+    DateTime? selectedEndDate;
+
+    // تعيين السعر الأصلي افتراضيًا
     final originalPrice = service.price;
 
     Get.dialog(
-      AlertDialog(
-        title: Text('إضافة عرض للخدمة: ${service.service?.title ?? ''}'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'عنوان العرض',
-                  border: OutlineInputBorder(),
-                ),
+      _buildCustomDialog(
+        title:
+            '${isArabic ? 'إضافة عرض' : 'Add Offer'}: ${service.service?.getTitle(isArabic) ?? (isArabic ? 'خدمة' : 'Service')}',
+        content: StatefulBuilder(
+          builder: (context, setState) {
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                
+                  TextField(
+                    controller: descriptionController,
+                    decoration: InputDecoration(
+                      labelText: 'description'.tr,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFEF4444)),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      prefixIcon:
+                          Icon(Icons.description, color: Colors.grey[600]),
+                    ),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: offerPriceController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'offer_price'.tr,
+                      suffixText: 'omr'.tr,
+                      helperText:
+                          '${'original_price'.tr}: $originalPrice ' + 'omr'.tr,
+                      helperStyle: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFEF4444)),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      prefixIcon:
+                          Icon(Icons.attach_money, color: Colors.grey[600]),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // منتقي التاريخ لتاريخ الانتهاء
+                  InkWell(
+                    onTap: () async {
+                      final DateTime now = DateTime.now();
+
+                      DateTime initialDate = now.add(const Duration(days: 1));
+
+                      final DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: initialDate,
+                        firstDate: now.add(const Duration(days: 1)),
+                        lastDate: now.add(const Duration(days: 365)),
+                        locale: const Locale('ar'),
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: ColorScheme.light(
+                                primary: const Color(0xFFEF4444),
+                                onPrimary: Colors.white,
+                                onSurface: Colors.black,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          selectedEndDate = picked;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.grey[50],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today,
+                            color: Colors.grey[600],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'expires_in'.tr,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  selectedEndDate != null
+                                      ? _formatDate(selectedEndDate!)
+                                      : isArabic
+                                          ? 'اختر تاريخ الانتهاء'
+                                          : 'Select expiry date',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: selectedEndDate != null
+                                        ? Colors.black87
+                                        : Colors.grey[500],
+                                    fontWeight: selectedEndDate != null
+                                        ? FontWeight.w500
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            color: Colors.grey[400],
+                            size: 16,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'وصف العرض',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: offerPriceController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'سعر العرض',
-                  suffixText: 'OMR',
-                  helperText: 'السعر الأصلي: $originalPrice OMR',
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
         actions: [
-          TextButton(
+          _buildCustomButton(
+            text: 'cancel'.tr,
             onPressed: () => Get.back(),
-            child: const Text('إلغاء'),
           ),
-          Obx(() => TextButton(
-            onPressed: (isCreatingOffer.value && creatingOfferServiceId.value == service.id)
-                ? null
-                : () {
-              final title = titleController.text.trim();
-              final description = descriptionController.text.trim();
-              final offerPriceText = offerPriceController.text.trim();
+          Obx(() => _buildCustomButton(
+                text: 'add'.tr,
+                isPrimary: true,
+                onPressed: (isCreatingOffer.value &&
+                        creatingOfferServiceId.value == service.id)
+                    ? null
+                    : () {
+                        final description = descriptionController.text.trim();
+                        final offerPriceText = offerPriceController.text.trim();
 
-              if (title.isEmpty) {
-                _showErrorSnackbar('خطأ', 'يرجى إدخال عنوان العرض');
-                return;
-              }
+                      
 
-              if (description.isEmpty) {
-                _showErrorSnackbar('خطأ', 'يرجى إدخال وصف العرض');
-                return;
-              }
+                        if (description.isEmpty) {
+                          _showErrorSnackbar('error'.tr, 'field_required'.tr);
+                          return;
+                        }
 
-              if (offerPriceText.isEmpty) {
-                _showErrorSnackbar('خطأ', 'يرجى إدخال سعر العرض');
-                return;
-              }
+                        if (offerPriceText.isEmpty) {
+                          _showErrorSnackbar('error'.tr, 'field_required'.tr);
+                          return;
+                        }
 
-              final offerPrice = double.tryParse(offerPriceText);
-              if (offerPrice == null || offerPrice <= 0) {
-                _showErrorSnackbar('خطأ', 'يرجى إدخال سعر صحيح');
-                return;
-              }
+                        final offerPrice = double.tryParse(offerPriceText);
+                        if (offerPrice == null || offerPrice <= 0) {
+                          _showErrorSnackbar('error'.tr, 'field_required'.tr);
+                          return;
+                        }
 
-              if (offerPrice >= originalPrice) {
-                _showErrorSnackbar('خطأ', 'سعر العرض يجب أن يكون أقل من السعر الأصلي');
-                return;
-              }
+                        if (offerPrice >= originalPrice) {
+                          _showErrorSnackbar('error'.tr, 'field_required'.tr);
+                          return;
+                        }
 
-              Get.back();
-              _createOffer(service, title, description, originalPrice, offerPrice);
-            },
-            child: (isCreatingOffer.value && creatingOfferServiceId.value == service.id)
-                ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-                : const Text('إضافة'),
-          )),
+                        if (selectedEndDate == null) {
+                          _showErrorSnackbar('error'.tr, 'field_required'.tr);
+                          return;
+                        }
+
+                        // التأكد من أن تاريخ الانتهاء في المستقبل
+                        if (selectedEndDate!.isBefore(DateTime.now())) {
+                          _showErrorSnackbar('error'.tr, 'field_required'.tr);
+                          return;
+                        }
+
+                        Get.back();
+                        _createOffer(service, description, originalPrice,
+                            offerPrice, selectedEndDate!);
+                      },
+                child: (isCreatingOffer.value &&
+                        creatingOfferServiceId.value == service.id)
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : null,
+              )),
         ],
       ),
     );
@@ -183,24 +737,23 @@ class OffersController extends GetxController {
 
   // إنشاء عرض جديد
   Future<void> _createOffer(
-      ProviderServiceModel service,
-      String title,
-      String description,
-      double originalPrice,
-      double offerPrice,
-      ) async {
+    ProviderServiceModel service,
+    String description,
+    double originalPrice,
+    double offerPrice,
+    DateTime endDate,
+  ) async {
     try {
       isCreatingOffer.value = true;
       creatingOfferServiceId.value = service.id;
 
       final request = CreateOfferRequest(
         serviceId: service.serviceId,
-        title: title,
         description: description,
         originalPrice: originalPrice,
         offerPrice: offerPrice,
-        startDate: DateTime.now(),
-        endDate: DateTime.now().add(const Duration(days: 30)), // عرض لمدة شهر
+        startDate: DateTime.now(), // بداية العرض هو الوقت الحالي
+        endDate: endDate, // تاريخ الانتهاء المحدد من المستخدم
       );
 
       final newOffer = await _offersService.createOffer(request);
@@ -208,8 +761,9 @@ class OffersController extends GetxController {
       // تحديث قائمة العروض الشخصية
       myOffers.add(newOffer);
 
-      // تحديث خدمة المزود بحيث يكون عندها activeOffer
-      final serviceIndex = providerServices.indexWhere((s) => s.id == service.id);
+      // تحديث خدمة مقدم الخدمة بحيث تحتوي على العرض النشط
+      final serviceIndex =
+          providerServices.indexWhere((s) => s.id == service.id);
       if (serviceIndex != -1) {
         final updatedService = providerServices[serviceIndex];
 
@@ -220,13 +774,13 @@ class OffersController extends GetxController {
           price: updatedService.price,
           isActive: updatedService.isActive,
           service: updatedService.service,
-          activeOffer: newOffer, // هنا بنخزن العرض الجديد مباشرة
+          activeOffer: newOffer,
         );
       }
 
-      _showSuccessSnackbar('تم بنجاح', 'تم إضافة العرض بنجاح');
+      _showSuccessSnackbar('success'.tr, 'success'.tr + ' ' + 'add_offer'.tr);
     } catch (e) {
-      _showErrorSnackbar('خطأ في إضافة العرض', e.toString());
+      _showErrorSnackbar('error'.tr, e.toString());
     } finally {
       isCreatingOffer.value = false;
       creatingOfferServiceId.value = null;
@@ -236,20 +790,41 @@ class OffersController extends GetxController {
   // حذف عرض
   void deleteOffer(OfferModel offer) {
     Get.dialog(
-      AlertDialog(
-        title: const Text('حذف العرض'),
-        content: Text('هل أنت متأكد من حذف عرض "${offer.title}"؟'),
+      _buildCustomDialog(
+        title: 'delete_offer'.tr,
+        content: Column(
+          children: [
+            Center(
+              child: Icon(
+                Icons.warning_amber_rounded,
+                size: 64,
+                color: Colors.orange[400],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'confirm'.tr + ' ' + 'delete'.tr + ' ?',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[700],
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
         actions: [
-          TextButton(
+          _buildCustomButton(
+            text: 'cancel'.tr,
             onPressed: () => Get.back(),
-            child: const Text('إلغاء'),
           ),
-          TextButton(
+          _buildCustomButton(
+            text: 'delete'.tr,
+            isDestructive: true,
             onPressed: () async {
               Get.back();
               await _deleteOffer(offer);
             },
-            child: const Text('حذف', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -267,8 +842,9 @@ class OffersController extends GetxController {
       // إزالة العرض من قائمة العروض الشخصية
       myOffers.removeWhere((o) => o.id == offer.id);
 
-      // تحديث خدمة المزود - نخلي العرض null
-      final serviceIndex = providerServices.indexWhere((s) => s.serviceId == offer.serviceId);
+      // تحديث خدمة مقدم الخدمة - جعل العرض null
+      final serviceIndex =
+          providerServices.indexWhere((s) => s.serviceId == offer.serviceId);
       if (serviceIndex != -1) {
         final updatedService = providerServices[serviceIndex];
 
@@ -286,30 +862,46 @@ class OffersController extends GetxController {
         providerServices.refresh();
       }
 
-      _showSuccessSnackbar('تم الحذف', 'تم حذف العرض بنجاح');
+      _showSuccessSnackbar(
+          'success'.tr, 'delete_offer'.tr + ' ' + 'success'.tr);
     } catch (e) {
-      _showErrorSnackbar('خطأ في حذف العرض', e.toString());
+      _showErrorSnackbar('error'.tr, e.toString());
     } finally {
       isDeletingOffer.value = false;
       deletingOfferId.value = null;
     }
   }
 
-  // التحقق من loading state لعرض معين
-  bool isOfferLoading(int offerId, String operation) {
-    switch (operation) {
-      case 'delete':
-        return isDeletingOffer.value && deletingOfferId.value == offerId;
-      default:
-        return false;
-    }
+  // دوال مساعدة
+  String _formatDate(DateTime date) {
+    final months = [
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر'
+    ];
+
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
-  // التحقق من loading state لخدمة معينة
+  int _calculateDuration(DateTime start, DateTime end) {
+    return end.difference(start).inDays;
+  }
+
+  // التحقق من حالة التحميل لخدمة معينة
   bool isServiceLoading(int serviceId, String operation) {
     switch (operation) {
       case 'createOffer':
-        return isCreatingOffer.value && creatingOfferServiceId.value == serviceId;
+        return isCreatingOffer.value &&
+            creatingOfferServiceId.value == serviceId;
       default:
         return false;
     }

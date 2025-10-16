@@ -1,51 +1,105 @@
+import 'dart:io';
+
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:khabir/services/auth_service.dart';
+import 'package:khabir/services/language_service.dart';
+import 'package:khabir/utils/openPrivacyPolicyUrl.dart';
+import 'package:khabir/widgets/AccountPendingApprovalDialog.dart';
+import 'package:pin_code_fields/pin_code_fields.dart';
 import 'dart:async';
 import '../models/user_model.dart';
 import '../services/storage_service.dart';
 import '../services/dio_service.dart';
 import '../routes/app_routes.dart';
+import '../utils/PhoneHelper.dart';
 
 class AuthController extends GetxController {
   final AuthService _authService = AuthService();
   final StorageService _storageService = Get.find<StorageService>();
   final DioService _dioService = DioService();
 
-  // متحكمات النصوص
-  final emailController = TextEditingController();
-  final signupEmailController = TextEditingController();
+  // === متحكمات النصوص منفصلة لكل صفحة ===
 
-  final passwordController = TextEditingController();
+  // متحكمات تسجيل الدخول
+  final loginPhoneController = TextEditingController();
+  final loginPasswordController = TextEditingController();
+
+  // متحكمات التسجيل
+  final signupNameController = TextEditingController();
+  final signupPhoneController = TextEditingController();
   final signupPasswordController = TextEditingController();
+  final signupConfirmPasswordController = TextEditingController();
+  final signupDescriptionController = TextEditingController();
 
+  // متحكمات إعادة تعيين كلمة المرور
+  final resetPhoneController = TextEditingController();
+  final resetOtpController = TextEditingController();
+  final resetNewPasswordController = TextEditingController();
+  final resetConfirmPasswordController = TextEditingController();
 
-  final nameController = TextEditingController();
-  final phoneController = TextEditingController();
-  final confirmPasswordController = TextEditingController();
-  final descriptionController = TextEditingController();
-  final otpController = TextEditingController();
-  final newPasswordController = TextEditingController();
-  final confirmNewPasswordController = TextEditingController();
+  // متحكمات تأكيد الحساب
+  final verifyOtpController = TextEditingController();
 
-  // حالات التحكم
-  var isLoading = false.obs;
-  var isPasswordVisible = false.obs;
-  var isConfirmPasswordVisible = false.obs;
-  var isNewPasswordVisible = false.obs;
-  var isConfirmNewPasswordVisible = false.obs;
-  var rememberMe = false.obs;
+  // === متحكمات OTP منفصلة ===
+  StreamController<ErrorAnimationType>? verifyOtpErrorController;
+  StreamController<ErrorAnimationType>? resetOtpErrorController;
+
+  // === حالات التحكم منفصلة لكل صفحة ===
+
+  // حالات تسجيل الدخول
+  var isLoginLoading = false.obs;
+  var isLoginPasswordVisible = false.obs;
+
+  // حالات التسجيل
+  var isSignupLoading = false.obs;
+  var isSignupPasswordVisible = false.obs;
+  var isSignupConfirmPasswordVisible = false.obs;
   var isTermsAccepted = false.obs;
+
+  // حالات إعادة تعيين كلمة المرور
+  var isResetLoading = false.obs;
+  var isResetNewPasswordVisible = false.obs;
+  var isResetConfirmPasswordVisible = false.obs;
+
+  // حالات تأكيد الحساب
+  var isVerifyLoading = false.obs;
+  var hasVerifyOtpError = false.obs;
+  var verifyOtpErrorText = ''.obs;
+  var hasResetOtpError = false.obs;
+  var resetOtpErrorText = ''.obs;
+
+  // حالات عامة
+  var rememberMe = false.obs;
   var otpTimer = 0.obs;
   var canResendOtp = true.obs;
   var isAccountVerified = false.obs;
   var showSuccessDialog = false.obs;
 
+  // متغيرات روابط الشروط والأحكام
+  var termsUrls = <String, String?>{}.obs;
+  var isLoadingTerms = false.obs;
+  var currentTermsUrl = ''.obs;
+
+  final LanguageService _languageService = Get.find<LanguageService>();
+
+  String get selectedLanguage => _languageService.getCurrentLanguage;
+  bool get isArabic => _languageService.isArabic;
+  bool get isEnglish => _languageService.isEnglish;
+
+  // التحقق من توفر روابط الشروط والأحكام
+  bool get hasTermsUrl => getTermsUrl()?.isNotEmpty ?? false;
+  bool get hasPrivacyUrl => getPrivacyUrl()?.isNotEmpty ?? false;
+
+  // متغير لتخزين رقم الهاتف المنسق
+  RxString formattedPhone = ''.obs;
+  RxString phoneError = ''.obs;
+
   // القوائم المنسدلة
+  final selectedGovernorate = Rx<String?>(null);
   final selectedState = Rx<String?>(null);
-  // final selectedService = Rx<String?>(null);
-  final selectedCity = Rx<String?>(null);
 
   // رفع الصور
   final ImagePicker _picker = ImagePicker();
@@ -60,176 +114,425 @@ class AuthController extends GetxController {
   // متغير لتخزين بيانات التسجيل المؤقتة
   Map<String, dynamic> _registrationData = {};
 
-  // قائمة المحافظات العمانية
-  final List<String> states = [
-    'مسقط',
-    'شمال الباطنة',
-    'جنوب الباطنة',
-    'شمال الشرقية',
-    'جنوب الشرقية',
-    'الداخلية',
-    'الظاهرة',
-    'البريمي',
-    'الوسطى',
-    'ظفار',
-    'مسندم',
-  ];
+  // الفئات والخدمات
+  var allCategories = <Map<String, dynamic>>[].obs;
+  var filteredCategories = <Map<String, dynamic>>[].obs;
+  var selectedCategories = <Map<String, dynamic>>[].obs;
+  var allServices = <Map<String, dynamic>>[].obs;
+  var filteredServices = <Map<String, dynamic>>[].obs;
+  var selectedServices = <Map<String, dynamic>>[].obs;
+  var servicePrices = <int, double>{}.obs;
 
-  // قائمة المدن لكل محافظة في سلطنة عمان
-  final Map<String, List<String>> citiesByState = {
-    'مسقط': [
-      'مسقط',
-      'مطرح',
-      'السيب',
-      'بوشر',
-      'العامرات',
-      'قريات',
-    ],
-    'شمال الباطنة': [
-      'صحار',
-      'لوى',
-      'شناص',
-      'السويق',
-      'الخابورة',
-      'صحم',
-    ],
-    'جنوب الباطنة': [
-      'الرستاق',
-      'بركاء',
-      'المصنعة',
-      'العوابي',
-      'وادي المعاول',
-      'نخل',
-    ],
-    'شمال الشرقية': [
-      'إبراء',
-      'المضيبي',
-      'القابل',
-      'بدية',
-      'وادي بني خالد',
-      'دماء والطائيين',
-    ],
-    'جنوب الشرقية': [
-      'صور',
-      'الكامل والوافي',
-      'جعلان بني بوحسن',
-      'جعلان بني بوعلي',
-      'مصيرة',
-    ],
-    'الداخلية': [
-      'نزوى',
-      'بهلاء',
-      'الحمراء',
-      'آدم',
-      'منح',
-      'سمائل',
-      'إزكي',
-      'بدبد',
-    ],
-    'الظاهرة': [
-      'عبري',
-      'ينقل',
-      'ضنك',
-    ],
-    'البريمي': [
-      'البريمي',
-      'محضة',
-      'السنينة',
-    ],
-    'الوسطى': [
-      'هيما',
-      'الجعلة',
-      'الركبية',
-      'الدقم',
-      'محوت',
-    ],
-    'ظفار': [
-      'صلالة',
-      'مرباط',
-      'طاقة',
-      'سدح',
-      'رخيوت',
-      'ضلكوت',
-      'مقشن',
-      'ثمريت',
-      'شليم وجزر الحلانيات',
-    ],
-    'مسندم': [
-      'خصب',
-      'دبا',
-      'بخاء',
-      'مدحاء',
-    ],
-  };
+  // قائمة المحافظات العمانية المحدثة
+  final List<Map<String, dynamic>> omanStates = [
+    {
+      "governorate": {"en": "Muscat Governorate", "ar": "محافظة مسقط"},
+      "value": "Muscat",
+      "states": [
+        {
+          "value": "Muscat",
+          "label": {"en": "Muscat", "ar": "مسقط"}
+        },
+        {
+          "value": "Muttrah",
+          "label": {"en": "Muttrah", "ar": "مطرح"}
+        },
+        {
+          "value": "Al Amrat",
+          "label": {"en": "Al Amrat", "ar": "العامرات"}
+        },
+        {
+          "value": "Bawshar",
+          "label": {"en": "Bawshar", "ar": "بوشر"}
+        },
+        {
+          "value": "Al Seeb",
+          "label": {"en": "Al Seeb", "ar": "السيب"}
+        },
+        {
+          "value": "Qurayyat",
+          "label": {"en": "Qurayyat", "ar": "القريات"}
+        }
+      ]
+    },
+    {
+      "governorate": {"en": "Dhofar Governorate", "ar": "محافظة ظفار"},
+      "value": "Dhofar",
+      "states": [
+        {
+          "value": "Salalah",
+          "label": {"en": "Salalah", "ar": "صلالة"}
+        },
+        {
+          "value": "Taqah",
+          "label": {"en": "Taqah", "ar": "طاقة"}
+        },
+        {
+          "value": "Mirbat",
+          "label": {"en": "Mirbat", "ar": "مرباط"}
+        },
+        {
+          "value": "Rakhyut",
+          "label": {"en": "Rakhyut", "ar": "رخيوت"}
+        },
+        {
+          "value": "Thumrait",
+          "label": {"en": "Thumrait", "ar": "ثمريت"}
+        },
+        {
+          "value": "Dhalkut",
+          "label": {"en": "Dhalkut", "ar": "ضلكوت"}
+        },
+        {
+          "value": "Al Mazyunah",
+          "label": {"en": "Al Mazyunah", "ar": "المزيونة"}
+        },
+        {
+          "value": "Maqshan",
+          "label": {"en": "Maqshan", "ar": "مقشن"}
+        },
+        {
+          "value": "Shalim and the Hallaniyat Islands",
+          "label": {
+            "en": "Shalim and the Hallaniyat Islands",
+            "ar": "شليم وجزر الحلانيات"
+          }
+        },
+        {
+          "value": "Sadah",
+          "label": {"en": "Sadah", "ar": "سدح"}
+        }
+      ]
+    },
+    {
+      "governorate": {"en": "Musandam Governorate", "ar": "محافظة مسندم"},
+      "value": "Musandam",
+      "states": [
+        {
+          "value": "Khasab",
+          "label": {"en": "Khasab", "ar": "خصب"}
+        },
+        {
+          "value": "Dibba",
+          "label": {"en": "Dibba", "ar": "دبا"}
+        },
+        {
+          "value": "Bukha",
+          "label": {"en": "Bukha", "ar": "بخا"}
+        },
+        {
+          "value": "Madha",
+          "label": {"en": "Madha", "ar": "مدحاء"}
+        }
+      ]
+    },
+    {
+      "governorate": {"en": "Al Buraimi Governorate", "ar": "محافظة البريمي"},
+      "value": "Al Buraimi",
+      "states": [
+        {
+          "value": "Al Buraimi",
+          "label": {"en": "Al Buraimi", "ar": "البريمي"}
+        },
+        {
+          "value": "Mahdah",
+          "label": {"en": "Mahdah", "ar": "محضة"}
+        },
+        {
+          "value": "Al Sinainah",
+          "label": {"en": "Al Sinainah", "ar": "السنينة"}
+        }
+      ]
+    },
+    {
+      "governorate": {
+        "en": "Ad Dakhiliyah Governorate",
+        "ar": "محافظة الداخلية"
+      },
+      "value": "Ad Dakhiliyah",
+      "states": [
+        {
+          "value": "Nizwa",
+          "label": {"en": "Nizwa", "ar": "نزوى"}
+        },
+        {
+          "value": "Bahla",
+          "label": {"en": "Bahla", "ar": "بهلا"}
+        },
+        {
+          "value": "Manah",
+          "label": {"en": "Manah", "ar": "منح"}
+        },
+        {
+          "value": "Al Hamra",
+          "label": {"en": "Al Hamra", "ar": "الحمراء"}
+        },
+        {
+          "value": "Adam",
+          "label": {"en": "Adam", "ar": "أدم"}
+        },
+        {
+          "value": "Izki",
+          "label": {"en": "Izki", "ar": "إزكي"}
+        },
+        {
+          "value": "Samail",
+          "label": {"en": "Samail", "ar": "سمائل"}
+        },
+        {
+          "value": "Bidbid",
+          "label": {"en": "Bidbid", "ar": "بدبد"}
+        },
+        {
+          "value": "Al Jabal Al Akhdar",
+          "label": {"en": "Al Jabal Al Akhdar", "ar": "الجبل الأخضر"}
+        }
+      ]
+    },
+    {
+      "governorate": {
+        "en": "North Al Batinah Governorate",
+        "ar": "محافظة شمال الباطنة"
+      },
+      "value": "North Al Batinah",
+      "states": [
+        {
+          "value": "Sohar",
+          "label": {"en": "Sohar", "ar": "صحار"}
+        },
+        {
+          "value": "Liwa",
+          "label": {"en": "Liwa", "ar": "لوى"}
+        },
+        {
+          "value": "Shinas",
+          "label": {"en": "Shinas", "ar": "شناص"}
+        },
+        {
+          "value": "Saham",
+          "label": {"en": "Saham", "ar": "صحم"}
+        },
+        {
+          "value": "Al Khaboura",
+          "label": {"en": "Al Khaboura", "ar": "الخابورة"}
+        },
+        {
+          "value": "Al Suwaiq",
+          "label": {"en": "Al Suwaiq", "ar": "السويق"}
+        }
+      ]
+    },
+    {
+      "governorate": {
+        "en": "South Al Batinah Governorate",
+        "ar": "محافظة جنوب الباطنة"
+      },
+      "value": "South Al Batinah",
+      "states": [
+        {
+          "value": "Rustaq",
+          "label": {"en": "Rustaq", "ar": "الرستاق"}
+        },
+        {
+          "value": "Al Awabi",
+          "label": {"en": "Al Awabi", "ar": "العوابي"}
+        },
+        {
+          "value": "Nakhal",
+          "label": {"en": "Nakhal", "ar": "نخل"}
+        },
+        {
+          "value": "Wadi Al Maawil",
+          "label": {"en": "Wadi Al Maawil", "ar": "وادي المعاول"}
+        },
+        {
+          "value": "Barka",
+          "label": {"en": "Barka", "ar": "بركاء"}
+        },
+        {
+          "value": "Al Musannah",
+          "label": {"en": "Al Musannah", "ar": "المصنعة"}
+        }
+      ]
+    },
+    {
+      "governorate": {
+        "en": "South Ash Sharqiyah Governorate",
+        "ar": "محافظة جنوب الشرقية"
+      },
+      "value": "South Ash Sharqiyah",
+      "states": [
+        {
+          "value": "Sur",
+          "label": {"en": "Sur", "ar": "صور"}
+        },
+        {
+          "value": "Al Kamil Wal Wafi",
+          "label": {"en": "Al Kamil Wal Wafi", "ar": "الكامل والوافي"}
+        },
+        {
+          "value": "Jaalan Bani Bu Hassan",
+          "label": {"en": "Jaalan Bani Bu Hassan", "ar": "جعلان بني بوحسن"}
+        },
+        {
+          "value": "Jaalan Bani Bu Ali",
+          "label": {"en": "Jaalan Bani Bu Ali", "ar": "جعلان بني بو علي"}
+        },
+        {
+          "value": "Masirah",
+          "label": {"en": "Masirah", "ar": "مصيرة"}
+        }
+      ]
+    },
+    {
+      "governorate": {
+        "en": "North Ash Sharqiyah Governorate",
+        "ar": "محافظة شمال الشرقية"
+      },
+      "value": "North Ash Sharqiyah",
+      "states": [
+        {
+          "value": "Ibra",
+          "label": {"en": "Ibra", "ar": "إبراء"}
+        },
+        {
+          "value": "Al Mudhaibi",
+          "label": {"en": "Al Mudhaibi", "ar": "المضيبي"}
+        },
+        {
+          "value": "Bidiyah",
+          "label": {"en": "Bidiyah", "ar": "بدية"}
+        },
+        {
+          "value": "Al Qabil",
+          "label": {"en": "Al Qabil", "ar": "القابل"}
+        },
+        {
+          "value": "Wadi Bani Khalid",
+          "label": {"en": "Wadi Bani Khalid", "ar": "وادي بني خالد"}
+        },
+        {
+          "value": "Dema Wa Thaieen",
+          "label": {"en": "Dema Wa Thaieen", "ar": "دماء الطائيين"}
+        },
+        {
+          "value": "Sinaw",
+          "label": {"en": "Sinaw", "ar": "سناو"}
+        }
+      ]
+    },
+    {
+      "governorate": {"en": "Ad Dhahirah Governorate", "ar": "محافظة الظاهرة"},
+      "value": "Ad Dhahirah",
+      "states": [
+        {
+          "value": "Ibri",
+          "label": {"en": "Ibri", "ar": "عبري"}
+        },
+        {
+          "value": "Yanqul",
+          "label": {"en": "Yanqul", "ar": "ينقل"}
+        },
+        {
+          "value": "Dhank",
+          "label": {"en": "Dhank", "ar": "ضنك"}
+        }
+      ]
+    },
+    {
+      "governorate": {"en": "Al Wusta Governorate", "ar": "محافظة الوسطى"},
+      "value": "Al Wusta",
+      "states": [
+        {
+          "value": "Haima",
+          "label": {"en": "Haima", "ar": "هيما"}
+        },
+        {
+          "value": "Mahout",
+          "label": {"en": "Mahout", "ar": "محوت"}
+        },
+        {
+          "value": "Duqm",
+          "label": {"en": "Duqm", "ar": "الدقم"}
+        },
+        {
+          "value": "Al Jazer",
+          "label": {"en": "Al Jazer", "ar": "الجازر"}
+        }
+      ]
+    }
+  ];
 
   @override
   void onInit() {
     super.onInit();
+    _initializeControllers();
     _checkLoginStatus();
+    _loadCategories();
+    _loadTermsAndConditions(); // تحميل الشروط عند بداية التطبيق
   }
 
-  // تحقق من حالة تسجيل الدخول
-  void _checkLoginStatus() {
-    if (_storageService.isLoggedIn) {
-      _loadUserData();
-    }
+  void _initializeControllers() {
+    // تهيئة متحكمات OTP منفصلة
+    verifyOtpErrorController = StreamController<ErrorAnimationType>();
+    resetOtpErrorController = StreamController<ErrorAnimationType>();
+
+    // إضافة listeners منفصلة
+    signupPhoneController.addListener(_onSignupPhoneChanged);
+    resetPhoneController.addListener(_onResetPhoneChanged);
   }
 
-  // تحميل بيانات المستخدم
-  void _loadUserData() {
+  // === دوال تحميل البيانات ===
+
+  Future<void> _loadTermsAndConditions() async {
     try {
-      final userData = _storageService.userData;
-      if (userData.isNotEmpty) {
-        currentUser.value = UserModel.fromJson(userData);
-        // تحديث الـ token في DioService
-        _dioService.updateToken(_storageService.userToken);
-      }
+      isLoadingTerms.value = true;
+      final terms = await _authService.getTermsAndConditions();
+      termsUrls.value = terms;
+      print('Terms loaded successfully during app initialization');
     } catch (e) {
-      print('Error loading user data: $e');
-      _storageService.clearUserSession();
+      print('Error loading terms and conditions: $e');
+      termsUrls.value = {
+        'terms_ar': null,
+        'terms_en': null,
+        'privacy_en': null,
+        'privacy_ar': null
+      };
+    } finally {
+      isLoadingTerms.value = false;
     }
   }
 
-  // تسجيل الدخول
+  Future<void> _loadCategories() async {
+    try {
+      final response = await _authService.getPublicCategories();
+      allCategories.value = response;
+      _filterCategoriesByState();
+    } catch (e) {
+      print('Error loading categories: $e');
+    }
+  }
+
+  // === دوال تسجيل الدخول ===
+
   Future<void> login() async {
     if (!_validateLoginForm()) return;
 
-
     try {
-      isLoading.value = true;
+      isLoginLoading.value = true;
 
-      // الحصول على FCM Token من التخزين المحلي
       final fcmToken = _storageService.getFCMToken();
-      print('FCM Token for login: ${fcmToken.isNotEmpty ? fcmToken.substring(0, 20) + "..." : "Empty"}');
+      print(
+          'FCM Token for login: ${fcmToken.isNotEmpty ? fcmToken.substring(0, 20) + "..." : "Empty"}');
 
-      // التحقق من حالة الحساب أولاً
-      try {
-        final statusResponse = await _authService.checkAccountStatus(
-          email: emailController.text.trim(),
-        );
+      final phone = _formatPhoneNumber(loginPhoneController.text.trim());
 
-        if (statusResponse['exists'] == false) {
-          Get.snackbar(
-            'خطأ',
-            'الحساب غير موجود',
-            backgroundColor: Colors.red,
-            colorText: Colors.white,
-            snackPosition: SnackPosition.TOP,
-          );
-          return;
-        }
-      } catch (e) {
-        print('Check status error (continuing): $e');
-      }
-
-      // محاولة تسجيل الدخول مع FCM Token
       final response = await _authService.login(
-        email: emailController.text.trim(),
-        password: passwordController.text,
+        phone: phone,
+        password: loginPasswordController.text,
         fcmToken: fcmToken.isNotEmpty ? fcmToken : null,
       );
 
-      // حفظ البيانات
       final token = response['access_token'];
       final userData = response['user'];
 
@@ -240,80 +543,127 @@ class AuthController extends GetxController {
         fcmToken: fcmToken,
       );
 
-      // تحديث التوكن في DioService
       _dioService.updateToken(token);
-
-      // تحديث المستخدم الحالي
       currentUser.value = UserModel.fromJson(userData);
 
       Get.snackbar(
-        'تم بنجاح',
-        'تم تسجيل الدخول بنجاح',
+        'success'.tr,
+        'login_success'.tr,
         backgroundColor: Colors.green,
         colorText: Colors.white,
         snackPosition: SnackPosition.TOP,
       );
 
-      _clearForms();
+      _clearLoginForms();
       Get.offAllNamed(AppRoutes.HOME);
     } catch (e) {
+      String errorMessage;
+
+      if (e.toString().contains("Invalid credentials")) {
+        errorMessage = "invalid_credentials".tr;
+      } else {
+        errorMessage = e.toString();
+      }
+
       Get.snackbar(
-        'خطأ',
-        e.toString(),
+        'error'.tr,
+        errorMessage,
         backgroundColor: Colors.red,
         colorText: Colors.white,
         snackPosition: SnackPosition.TOP,
       );
     } finally {
-      isLoading.value = false;
+      isLoginLoading.value = false;
     }
   }
 
-  // التسجيل - الخطوة الأولى (إرسال البيانات وطلب OTP)
+  bool _validateLoginForm() {
+    if (loginPhoneController.text.trim().isEmpty) {
+      _showError('please_enter_email_phone'.tr);
+      return false;
+    }
+
+    String input = loginPhoneController.text.trim();
+    bool isPhone = PhoneHelper.isValidOmanPhone(input);
+
+    if (!isPhone) {
+      _showError('please_enter_valid_email_phone'.tr);
+      return false;
+    }
+
+    if (loginPasswordController.text.isEmpty) {
+      _showError('please_enter_password'.tr);
+      return false;
+    }
+
+    if (loginPasswordController.text.length < 6) {
+      _showError('password_min_length'.tr);
+      return false;
+    }
+
+    return true;
+  }
+
+  // === دوال التسجيل ===
+
   Future<void> register() async {
-    if (!_validateSignUpForm()) return;
+    if (!_validateRegistrationData()) {
+      Get.snackbar(
+        'error'.tr,
+        'please_correct_data'.tr,
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
 
     try {
-      isLoading.value = true;
+      isSignupLoading.value = true;
 
-      // الحصول على FCM Token من التخزين المحلي
       final fcmToken = _storageService.getFCMToken();
-      print('FCM Token for registration: ${fcmToken.isNotEmpty ? fcmToken.substring(0, 20) + "..." : "Empty"}');
+      final categoryIds =
+          selectedCategories.map((category) => category['id'] as int).toList();
+      String finalPhone =
+          PhoneHelper.formatOmanPhone(signupPhoneController.text);
 
-      // تحضير بيانات التسجيل
+      File? profileImageFile;
+      if (selectedProfileImage.value != null) {
+        profileImageFile = File(selectedProfileImage.value!.path);
+        print('✓ Profile image ready: ${profileImageFile.path}');
+        print('✓ Image size: ${await profileImageFile.length()} bytes');
+      } else {
+        print('✗ No profile image selected');
+      }
+
       _registrationData = {
-        'name': nameController.text.trim(),
-        'email': signupEmailController.text.trim(),
+        'name': signupNameController.text.trim(),
         'password': signupPasswordController.text,
-        'phoneNumber': _formatPhoneNumber(phoneController.text.trim()),
+        'phoneNumber': finalPhone,
         'role': 'PROVIDER',
-        'description': descriptionController.text.trim(),
-        'address': '${selectedCity.value}, ${selectedState.value}',
+        'description': signupDescriptionController.text.trim(),
         'state': selectedState.value ?? '',
-        'city': selectedCity.value,
-        // 'serviceType': selectedService.value,
-        'fcmToken': fcmToken, // إضافة FCM Token للبيانات المؤقتة
+        'categoryIds': categoryIds,
+        'fcmToken': fcmToken,
+        'profileImage': profileImageFile, // حفظ الصورة
       };
 
-      // إرسال طلب بدء التسجيل مع FCM Token
       final response = await _authService.initiateRegistration(
         name: _registrationData['name'],
-        email: _registrationData['email'],
         password: _registrationData['password'],
         phoneNumber: _registrationData['phoneNumber'],
         role: _registrationData['role'],
         description: _registrationData['description'],
-        address: _registrationData['address'],
         state: _registrationData['state'],
-        city: _registrationData['city'],
-        // serviceType: _registrationData['serviceType'],
+        categoryIds: _registrationData['categoryIds'],
         fcmToken: fcmToken.isNotEmpty ? fcmToken : null,
+        profileImage: profileImageFile, // إرسال الصورة
       );
 
       if (response['success'] == true) {
         Get.snackbar(
-          'تم الإرسال',
-          response['message'] ?? 'تم إرسال رمز التحقق',
+          'sent'.tr,
+          'verification_code_sent'.tr,
           backgroundColor: Colors.green,
           colorText: Colors.white,
           snackPosition: SnackPosition.TOP,
@@ -322,190 +672,650 @@ class AuthController extends GetxController {
         _startAccountVerificationTimer();
         Get.toNamed(AppRoutes.VERIFY_ACCOUNT);
       } else {
-        throw response['message'] ?? 'فشل في إرسال البيانات';
+        throw 'registration_failed'.tr;
       }
     } catch (e) {
+      String errorMessage;
+
+      if (e.toString().contains("Invalid credentials")) {
+        errorMessage = "invalid_credentials".tr;
+      } else if (e.toString().contains("Phone number is already registered")) {
+        errorMessage = "phone_already_registered".tr;
+      } else {
+        errorMessage = e.toString();
+      }
+
       Get.snackbar(
-        'خطأ',
-        e.toString(),
+        'error'.tr,
+        errorMessage,
         backgroundColor: Colors.red,
         colorText: Colors.white,
         snackPosition: SnackPosition.TOP,
       );
     } finally {
-      isLoading.value = false;
+      isSignupLoading.value = false;
     }
   }
 
-  // تأكيد الحساب - الخطوة الثانية
+  bool _validateRegistrationData() {
+    bool isValid = true;
+
+    if (signupNameController.text.trim().isEmpty) {
+      _showError('يرجى إدخال الاسم الكامل');
+      isValid = false;
+    }
+
+    if (signupNameController.text.trim().length < 2) {
+      _showError('الاسم يجب أن يكون حرفين على الأقل');
+      isValid = false;
+    }
+
+    String? phoneErrorMsg = PhoneHelper.getPhoneErrorMessage(
+        signupPhoneController.text, Get.locale?.languageCode ?? 'ar');
+
+    if (phoneErrorMsg != null) {
+      phoneError.value = phoneErrorMsg;
+      isValid = false;
+    } else {
+      phoneError.value = '';
+    }
+
+    if (signupPasswordController.text.length < 6) {
+      _showError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      isValid = false;
+    }
+
+    if (signupPasswordController.text != signupConfirmPasswordController.text) {
+      _showError('كلمة المرور غير متطابقة');
+      isValid = false;
+    }
+
+    if (selectedGovernorate.value == null) {
+      _showError('يرجى اختيار المحافظة');
+      isValid = false;
+    }
+
+    if (selectedState.value == null) {
+      _showError('يرجى اختيار الولاية');
+      isValid = false;
+    }
+
+    if (selectedCategories.isEmpty) {
+      _showError('يرجى اختيار فئة واحدة على الأقل');
+      isValid = false;
+    }
+
+    if (!isTermsAccepted.value) {
+      _showError('يرجى الموافقة على الشروط والأحكام');
+      isValid = false;
+    }
+
+    return isValid;
+  }
+
+  // === دوال تأكيد الحساب ===
+
   Future<void> verifyAccount() async {
-    if (!_validateOtp()) return;
+    if (!_validateVerifyOtp()) return;
 
     try {
-      isLoading.value = true;
+      isVerifyLoading.value = true;
 
       final response = await _authService.completeRegistration(
         name: _registrationData['name'],
-        email: _registrationData['email'],
         password: _registrationData['password'],
         phoneNumber: _registrationData['phoneNumber'],
-        otp: otpController.text.trim(),
+        otp: verifyOtpController.text.trim(),
         role: _registrationData['role'],
         description: _registrationData['description'],
-        address: _registrationData['address'],
         state: _registrationData['state'],
-        city: _registrationData['city'],
-        // serviceType: _registrationData['serviceType'],
-        // fcmToken: _registrationData['fcmToken'], // إرسال FCM Token
+        categoryIds: _registrationData['categoryIds'],
       );
 
-      // ✅ التحقق من كود الحالة (201 يعني تم إنشاء الحساب بنجاح)
       if (response['id'] != null) {
         isAccountVerified.value = true;
-
-        Get.snackbar(
-          'تم التحقق',
-          response['message'] ?? 'تم إنشاء حسابك بنجاح، بانتظار موافقة الإدارة',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP,
-        );
-
-        _clearForms();
-        // ⚠️ بما أن الحساب بحاجة موافقة الإدارة، ما رح نعمل Login مباشر
-        Get.offAllNamed(AppRoutes.LOGIN);
+        _clearAllForms();
+        AccountPendingApprovalDialog.show();
       } else {
-        throw response['message'] ?? 'حصل خطأ غير متوقع أثناء إنشاء الحساب';
+        throw 'account_creation_error'.tr;
       }
     } catch (e) {
+      String errorMessage;
+
+      if (e.toString().contains("Invalid OTP")) {
+        errorMessage = "invalid_otp".tr;
+      } else {
+        errorMessage = e.toString();
+      }
+
       Get.snackbar(
-        'خطأ',
-        e.toString(),
+        'error'.tr,
+        errorMessage,
         backgroundColor: Colors.red,
         colorText: Colors.white,
         snackPosition: SnackPosition.TOP,
       );
     } finally {
-      isLoading.value = false;
+      isVerifyLoading.value = false;
     }
   }
 
-  // إرسال رمز إعادة تعيين كلمة المرور
-  Future<void> sendResetCode() async {
-    if (!_validatePhone()) return;
+  bool _validateVerifyOtp() {
+    String otpValue = verifyOtpController.text.trim();
 
-    try {
-      isLoading.value = true;
+    hasVerifyOtpError.value = false;
+    verifyOtpErrorText.value = '';
 
-      final response = await _authService.sendPasswordResetOtp(
-        phoneNumber: _formatPhoneNumber(phoneController.text.trim()),
-      );
-
-      if (response['success'] == true) {
-        Get.snackbar(
-          'تم الإرسال',
-          response['message'] ?? 'تم إرسال رمز التحقق',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP,
-        );
-
-        _startOtpTimer();
-        Get.toNamed(AppRoutes.VERIFY_OTP);
-      } else {
-        throw response['message'] ?? 'فشل في إرسال الرمز';
-      }
-    } catch (e) {
-      Get.snackbar(
-        'خطأ',
-        e.toString(),
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-      );
-    } finally {
-      isLoading.value = false;
+    if (otpValue.isEmpty) {
+      _showVerifyOtpError('please_enter_verification_code'.tr);
+      return false;
     }
+
+    if (!RegExp(r'^[0-9]+$').hasMatch(otpValue)) {
+      _showVerifyOtpError('verification_code_numbers_only'.tr);
+      return false;
+    }
+
+    if (otpValue.length != 6) {
+      _showVerifyOtpError('verification_code_six_digits'.tr);
+      return false;
+    }
+
+    return true;
   }
 
-  // التحقق من رمز OTP
-  Future<void> verifyOtpCode() async {
-    if (!_validateOtp()) return;
+  void _showVerifyOtpError(String message) {
+    hasVerifyOtpError.value = true;
+    verifyOtpErrorText.value = message;
+    verifyOtpErrorController?.add(ErrorAnimationType.shake);
 
-    // للتطوير - الانتقال مباشرة لصفحة إعادة التعيين
-    Get.toNamed(AppRoutes.RESET_PASSWORD);
+    Get.snackbar(
+      'error'.tr,
+      message,
+      backgroundColor: Colors.orange,
+      colorText: Colors.white,
+      snackPosition: SnackPosition.TOP,
+    );
   }
 
-  // إعادة تعيين كلمة المرور
+  // === دوال إعادة تعيين كلمة المرور ===
+
   Future<void> resetPassword() async {
     if (!_validateResetPassword()) return;
 
     try {
-      isLoading.value = true;
+      isResetLoading.value = true;
 
-      final response = await _authService.resetPassword(
-        phoneNumber: _formatPhoneNumber(phoneController.text.trim()),
-        otp: otpController.text.trim(),
-        newPassword: newPasswordController.text,
+      // منطق إعادة تعيين كلمة المرور
+      // await _authService.resetPassword(...);
+
+      Get.snackbar(
+        'success'.tr,
+        'password_reset_success'.tr,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
       );
 
-      if (response['success'] == true) {
-        Get.snackbar(
-          'تم بنجاح',
-          response['message'] ?? 'تم تغيير كلمة المرور بنجاح',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP,
-        );
-
-        _clearResetPasswordForms();
-        Get.offAllNamed(AppRoutes.LOGIN);
-      } else {
-        throw response['message'] ?? 'فشل في تغيير كلمة المرور';
-      }
+      _clearResetPasswordForms();
+      Get.offAllNamed(AppRoutes.LOGIN);
     } catch (e) {
       Get.snackbar(
-        'خطأ',
+        'error'.tr,
         e.toString(),
         backgroundColor: Colors.red,
         colorText: Colors.white,
         snackPosition: SnackPosition.TOP,
       );
     } finally {
-      isLoading.value = false;
+      isResetLoading.value = false;
     }
   }
 
-  // إعادة إرسال رمز التحقق للتسجيل
+  bool _validateResetPassword() {
+    if (resetNewPasswordController.text.isEmpty) {
+      _showError('please_enter_new_password'.tr);
+      return false;
+    }
+
+    if (resetNewPasswordController.text.length < 6) {
+      _showError('password_min_length'.tr);
+      return false;
+    }
+
+    if (resetNewPasswordController.text !=
+        resetConfirmPasswordController.text) {
+      _showError('password_mismatch'.tr);
+      return false;
+    }
+
+    return true;
+  }
+
+  // === دوال UI State Management منفصلة ===
+
+  // تسجيل الدخول
+  void toggleLoginPasswordVisibility() {
+    isLoginPasswordVisible.value = !isLoginPasswordVisible.value;
+  }
+
+  // التسجيل
+  void toggleSignupPasswordVisibility() {
+    isSignupPasswordVisible.value = !isSignupPasswordVisible.value;
+  }
+
+  void toggleSignupConfirmPasswordVisibility() {
+    isSignupConfirmPasswordVisible.value =
+        !isSignupConfirmPasswordVisible.value;
+  }
+
+  // إعادة تعيين كلمة المرور
+  void toggleResetNewPasswordVisibility() {
+    isResetNewPasswordVisible.value = !isResetNewPasswordVisible.value;
+  }
+
+  void toggleResetConfirmPasswordVisibility() {
+    isResetConfirmPasswordVisible.value = !isResetConfirmPasswordVisible.value;
+  }
+
+  void toggleTermsAccepted() {
+    isTermsAccepted.value = !isTermsAccepted.value;
+  }
+
+  void toggleRememberMe() {
+    rememberMe.value = !rememberMe.value;
+  }
+
+  // === دوال مساعدة للهاتف ===
+
+  void _onSignupPhoneChanged() {
+    String phone = signupPhoneController.text;
+
+    if (phone.isEmpty) {
+      formattedPhone.value = '';
+      phoneError.value = '';
+      return;
+    }
+
+    String formatted = PhoneHelper.formatOmanPhone(phone);
+    formattedPhone.value = formatted;
+
+    String? error = PhoneHelper.getPhoneErrorMessage(
+        phone, Get.locale?.languageCode ?? 'ar');
+    phoneError.value = error ?? '';
+  }
+
+  void _onResetPhoneChanged() {
+    String phone = resetPhoneController.text;
+    if (phone.isNotEmpty) {
+      String? error = PhoneHelper.getPhoneErrorMessage(
+          phone, Get.locale?.languageCode ?? 'ar');
+      phoneError.value = error ?? '';
+    }
+  }
+
+  // === دوال OTP منفصلة ===
+
+  void onVerifyOtpChanged(String value) {
+    if (hasVerifyOtpError.value) {
+      hasVerifyOtpError.value = false;
+      verifyOtpErrorText.value = '';
+    }
+  }
+
+  void onResetOtpChanged(String value) {
+    if (hasResetOtpError.value) {
+      hasResetOtpError.value = false;
+      resetOtpErrorText.value = '';
+    }
+  }
+
+  void clearVerifyOtp() {
+    verifyOtpController.clear();
+    hasVerifyOtpError.value = false;
+    verifyOtpErrorText.value = '';
+  }
+
+  void clearResetOtp() {
+    resetOtpController.clear();
+    hasResetOtpError.value = false;
+    resetOtpErrorText.value = '';
+  }
+
+  // === دوال مسح البيانات منفصلة ===
+
+  void _clearLoginForms() {
+    loginPhoneController.clear();
+    loginPasswordController.clear();
+    isLoginPasswordVisible.value = false;
+    rememberMe.value = false;
+  }
+
+  void _clearSignupForms() {
+    signupNameController.clear();
+    signupPhoneController.clear();
+    signupPasswordController.clear();
+    signupConfirmPasswordController.clear();
+    signupDescriptionController.clear();
+    isSignupPasswordVisible.value = false;
+    isSignupConfirmPasswordVisible.value = false;
+    selectedState.value = null;
+    selectedGovernorate.value = null;
+    selectedCategories.clear();
+    isTermsAccepted.value = false;
+    formattedPhone.value = '';
+    phoneError.value = '';
+  }
+
+  void _clearResetPasswordForms() {
+    resetPhoneController.clear();
+    resetOtpController.clear();
+    resetNewPasswordController.clear();
+    resetConfirmPasswordController.clear();
+    isResetNewPasswordVisible.value = false;
+    isResetConfirmPasswordVisible.value = false;
+    hasResetOtpError.value = false;
+    resetOtpErrorText.value = '';
+    otpTimer.value = 0;
+    canResendOtp.value = true;
+  }
+
+  void _clearVerifyForms() {
+    verifyOtpController.clear();
+    hasVerifyOtpError.value = false;
+    verifyOtpErrorText.value = '';
+    otpTimer.value = 0;
+    canResendOtp.value = true;
+  }
+
+  void _clearAllForms() {
+    _clearLoginForms();
+    _clearSignupForms();
+    _clearResetPasswordForms();
+    _clearVerifyForms();
+    _registrationData.clear();
+  }
+
+  // === باقي الدوال كما هي ===
+
+  Future<void> logout() async {
+    try {
+      isLoginLoading.value = true;
+
+      print('🔄 Starting logout process...');
+
+      // 1. الحصول على FCM Token
+      final fcmToken = _storageService.getFCMToken();
+      print(
+          'FCM Token: ${fcmToken.isNotEmpty ? fcmToken.substring(0, 20) + "..." : "Empty"}');
+
+      // 2. محاولة تسجيل الخروج من السيرفر
+      try {
+        final serverResponse = await _logoutFromServer(fcmToken);
+        print('✅ Server logout successful');
+      } catch (serverError) {
+        print('⚠️ Server logout failed: $serverError');
+        // نكمل عملية تسجيل الخروج المحلي حتى لو فشل السيرفر
+      }
+
+      // 3. إلغاء الاشتراك من Firebase Topics
+      try {
+        await _unsubscribeFromFirebaseTopics();
+        print('✅ Firebase topics unsubscribed');
+      } catch (firebaseError) {
+        print('⚠️ Firebase unsubscribe failed: $firebaseError');
+      }
+
+      // 4. تنظيف البيانات المحلية
+      print('🔄 Clearing local data...');
+      await _storageService.clearUserSession();
+      _dioService.clearToken();
+      currentUser.value = null;
+      _clearAllForms();
+      print('✅ Local data cleared');
+
+      // 5. عرض رسالة النجاح
+      Get.snackbar(
+        'done'.tr,
+        'logout_success'.tr,
+        backgroundColor: Colors.blue,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        duration: const Duration(seconds: 2),
+      );
+
+      // 6. الانتظار قليلاً ثم الانتقال لصفحة تسجيل الدخول
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // 7. التنقل إلى صفحة تسجيل الدخول وحذف كل الصفحات السابقة
+      print('🔄 Navigating to login page...');
+      Get.offAllNamed(AppRoutes.LOGIN);
+      print('✅ Logout complete');
+    } catch (e) {
+      print('❌ Error during logout: $e');
+
+      // في حالة حدوث أي خطأ، نحاول التنظيف والتنقل على أي حال
+      try {
+        await _storageService.clearUserSession();
+        _dioService.clearToken();
+        currentUser.value = null;
+        _clearAllForms();
+
+        Get.snackbar(
+          'done'.tr,
+          'logout_local_success'.tr,
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+          duration: const Duration(seconds: 2),
+        );
+
+        await Future.delayed(const Duration(milliseconds: 500));
+        Get.offAllNamed(AppRoutes.LOGIN);
+      } catch (localError) {
+        print('❌ Critical error during logout: $localError');
+
+        Get.snackbar(
+          'error'.tr,
+          '${'logout_error'.tr}: $localError',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+          duration: const Duration(seconds: 3),
+        );
+
+        // محاولة أخيرة للتنقل
+        Get.offAllNamed(AppRoutes.LOGIN);
+      }
+    } finally {
+      isLoginLoading.value = false;
+    }
+  }
+
+  // === دوال الشروط والأحكام ===
+
+  String? getTermsUrl() {
+    if (termsUrls.isEmpty) return null;
+    return isArabic ? termsUrls['terms_ar'] : termsUrls['terms_en'];
+  }
+
+  String? getPrivacyUrl() {
+    if (termsUrls.isEmpty) return null;
+    return isArabic ? termsUrls['privacy_ar'] : termsUrls['privacy_en'];
+  }
+
+  Future<void> openTermsAndConditions() async {
+    try {
+      // تحقق من وجود الروابط المحملة مسبقاً
+      if (termsUrls.isEmpty) {
+        Get.snackbar(
+          'error'.tr,
+          isArabic
+              ? 'رابط الشروط والأحكام غير متوفر حالياً'
+              : 'Terms and conditions link is not available currently',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+        );
+        return;
+      }
+
+      final termsUrl = getTermsUrl();
+
+      if (termsUrl == null || termsUrl.isEmpty) {
+        Get.snackbar(
+          'error'.tr,
+          isArabic
+              ? 'رابط الشروط والأحكام غير متوفر حالياً'
+              : 'Terms and conditions link is not available currently',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+        );
+        return;
+      }
+      final privacyTitle = isArabic ? 'سياسة الخصوصية' : 'Privacy Policy';
+
+      openPrivacyPolicyUrl(termsUrl, privacyTitle);
+    } catch (e) {
+      Get.snackbar(
+        'error'.tr,
+        e.toString(),
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+      );
+    }
+  }
+
+  Future<void> openPrivacyPolicy() async {
+    try {
+      // تحقق من وجود الروابط المحملة مسبقاً
+      if (termsUrls.isEmpty) {
+        Get.snackbar(
+          'error'.tr,
+          isArabic
+              ? 'رابط سياسة الخصوصية غير متوفر حالياً'
+              : 'Privacy policy link is not available currently',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+        );
+        return;
+      }
+
+      final privacyUrl = getPrivacyUrl();
+
+      if (privacyUrl == null || privacyUrl.isEmpty) {
+        Get.snackbar(
+          'error'.tr,
+          isArabic
+              ? 'رابط سياسة الخصوصية غير متوفر حالياً'
+              : 'Privacy policy link is not available currently',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+        );
+        return;
+      }
+      final termsTitle = isArabic ? 'الشروط والأحكام' : 'Terms and Conditions';
+
+      openPrivacyPolicyUrl(privacyUrl, termsTitle);
+    } catch (e) {
+      Get.snackbar(
+        'error'.tr,
+        e.toString(),
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+      );
+    }
+  }
+
+  // === دوال مساعدة أخرى ===
+
+  String get termsStatusText {
+    if (isLoadingTerms.value) {
+      return isArabic ? 'جاري التحميل...' : 'Loading...';
+    }
+
+    if (!hasTermsUrl) {
+      return isArabic ? 'غير متوفر' : 'Not available';
+    }
+
+    return isArabic ? 'الشروط والأحكام' : 'Terms and Conditions';
+  }
+
+  String get privacyStatusText {
+    if (isLoadingTerms.value) {
+      return isArabic ? 'جاري التحميل...' : 'Loading...';
+    }
+
+    if (!hasPrivacyUrl) {
+      return isArabic ? 'غير متوفر' : 'Not available';
+    }
+
+    return isArabic ? 'سياسة الخصوصية' : 'Privacy Policy';
+  }
+
+  void _filterCategoriesByState() {
+    if (selectedState.value == null) {
+      filteredCategories.clear();
+      return;
+    }
+
+    filteredCategories.value = allCategories.where((category) {
+      final categoryState = category['state'];
+      if (categoryState != null) {
+        return categoryState == selectedState.value;
+      }
+      return false;
+    }).toList();
+  }
+
+  void _checkLoginStatus() {
+    if (_storageService.isLoggedIn) {
+      _loadUserData();
+    }
+  }
+
+  void _loadUserData() {
+    try {
+      final userData = _storageService.userData;
+      if (userData.isNotEmpty) {
+        currentUser.value = UserModel.fromJson(userData);
+        _dioService.updateToken(_storageService.userToken);
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+      _storageService.clearUserSession();
+    }
+  }
+
   Future<void> resendAccountVerificationOtp() async {
     if (!canResendOtp.value || _registrationData.isEmpty) return;
 
     try {
-      isLoading.value = true;
+      isVerifyLoading.value = true;
 
       final fcmToken = _storageService.getFCMToken();
       _registrationData['fcmToken'] = fcmToken;
 
-
       final response = await _authService.initiateRegistration(
         name: _registrationData['name'],
-        email: _registrationData['email'],
         password: _registrationData['password'],
         phoneNumber: _registrationData['phoneNumber'],
         role: _registrationData['role'],
         description: _registrationData['description'],
-        address: _registrationData['address'],
         state: _registrationData['state'],
-        city: _registrationData['city'],
-        serviceType: _registrationData['serviceType'],
+        categoryIds: _registrationData['categoryIds'],
         fcmToken: fcmToken.isNotEmpty ? fcmToken : null,
-
       );
 
       if (response['success'] == true) {
         Get.snackbar(
-          'تم الإرسال',
-          'تم إعادة إرسال رمز التحقق',
+          'sent'.tr,
+          'verification_code_resent'.tr,
           backgroundColor: Colors.green,
           colorText: Colors.white,
           snackPosition: SnackPosition.TOP,
@@ -515,205 +1325,82 @@ class AuthController extends GetxController {
       }
     } catch (e) {
       Get.snackbar(
-        'خطأ',
+        'error'.tr,
         e.toString(),
         backgroundColor: Colors.red,
         colorText: Colors.white,
         snackPosition: SnackPosition.TOP,
       );
     } finally {
-      isLoading.value = false;
+      isVerifyLoading.value = false;
     }
   }
 
-  // إعادة إرسال OTP لإعادة تعيين كلمة المرور
-  Future<void> resendOtp() async {
-    if (!canResendOtp.value) return;
-
-    await sendResetCode();
-  }
-
-  // تسجيل الخروج
-  Future<void> logout() async {
+  Future<Map<String, dynamic>> _logoutFromServer(String fcmToken) async {
     try {
-      isLoading.value = true;
+      print('🔄 Logging out from server...');
 
-      // مسح البيانات المحلية
-      await _storageService.clearUserSession();
-      _dioService.clearToken();
-      currentUser.value = null;
-      _clearForms();
-
-      Get.snackbar(
-        'تم',
-        'تم تسجيل الخروج بنجاح',
-        backgroundColor: Colors.blue,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
+      final response = await _authService.logout(
+        fcmToken: fcmToken.isNotEmpty ? fcmToken : null,
       );
 
-      Get.offAllNamed(AppRoutes.LOGIN);
-    } finally {
-      isLoading.value = false;
+      if (response['success'] == true) {
+        print('✅ Successfully logged out from server');
+        print('Server message: ${response['message']}');
+        return response;
+      } else {
+        final errorMessage = 'server_unknown_error'.tr;
+        print('❌ Server returned unsuccessful logout: $errorMessage');
+        throw Exception('${'logout_failed'.tr}: $errorMessage');
+      }
+    } catch (e) {
+      print('❌ Error logging out from server: $e');
+      throw e;
     }
   }
 
-  // Helper Methods
-  String _formatPhoneNumber(String phone) {
-    // تنسيق رقم الهاتف ليبدأ بـ +966 للسعودية أو +963 لسوريا
-    if (phone.startsWith('0')) {
-      return '+963${phone.substring(1)}';
-    } else if (phone.startsWith('5') && phone.length == 9) {
-      return '+966$phone';
-    } else if (!phone.startsWith('+')) {
-      return '+963$phone';
+  Future<void> _unsubscribeFromFirebaseTopics() async {
+    try {
+      print('🔄 Unsubscribing from Firebase topics...');
+
+      final List<String> topicsToUnsubscribe = [
+        'channel_providers',
+      ];
+
+      // for (String topic in topicsToUnsubscribe) {
+        try {
+          await FirebaseMessaging.instance.unsubscribeFromTopic("channel_providers");
+          // print('✅ Successfully unsubscribed from topic: $topic');
+        } catch (topicError) {
+          print('❌ Failed to unsubscribe from topic channel_providers: $topicError');
+        }
+      // }
+
+      await _storageService.write('subscribed_to_providers_topic', false);
+      print('✅ Updated local subscription status');
+    } catch (e) {
+      print('❌ Error unsubscribing from Firebase topics: $e');
+      throw e;
     }
-    return phone;
   }
 
-  // Validation Methods
-  bool _validateLoginForm() {
-    if (emailController.text.trim().isEmpty) {
-      _showError('يرجى إدخال البريد الإلكتروني أو رقم الهاتف');
-      return false;
-    }
+  void _startAccountVerificationTimer() {
+    canResendOtp.value = false;
+    otpTimer.value = 120;
 
-    String input = emailController.text.trim();
-    bool isEmail = GetUtils.isEmail(input);
-    bool isPhone = GetUtils.isPhoneNumber(input) && input.length >= 10;
-
-    if (!isEmail && !isPhone) {
-      _showError('يرجى إدخال بريد إلكتروني صحيح أو رقم هاتف صحيح');
-      return false;
-    }
-
-    if (passwordController.text.isEmpty) {
-      _showError('يرجى إدخال كلمة المرور');
-      return false;
-    }
-
-    if (passwordController.text.length < 6) {
-      _showError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
-      return false;
-    }
-
-    return true;
-  }
-
-  bool _validateSignUpForm() {
-    if (nameController.text.trim().isEmpty) {
-      _showError('يرجى إدخال الاسم الكامل');
-      return false;
-    }
-
-    if (nameController.text.trim().length < 2) {
-      _showError('الاسم يجب أن يكون حرفين على الأقل');
-      return false;
-    }
-
-    if (signupEmailController.text.trim().isEmpty) {
-      _showError('يرجى إدخال البريد الإلكتروني');
-      return false;
-    }
-
-    if (!GetUtils.isEmail(signupEmailController.text.trim())) {
-      _showError('يرجى إدخال بريد إلكتروني صحيح');
-      return false;
-    }
-
-    if (phoneController.text.trim().isEmpty) {
-      _showError('يرجى إدخال رقم الهاتف');
-      return false;
-    }
-
-    if (phoneController.text.trim().length < 10) {
-      _showError('رقم الهاتف يجب أن يكون 10 أرقام على الأقل');
-      return false;
-    }
-
-    if (selectedState.value == null) {
-      _showError('يرجى اختيار المنطقة');
-      return false;
-    }
-
-    if (selectedCity.value == null) {
-      _showError('يرجى اختيار المدينة');
-      return false;
-    }
-
-    // if (selectedService.value == null) {
-    //   _showError('يرجى اختيار نوع الخدمة');
-    //   return false;
-    // }
-
-    if (signupPasswordController.text.length < 6) {
-      _showError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
-      return false;
-    }
-
-    if (signupPasswordController.text != confirmPasswordController.text) {
-      _showError('كلمة المرور غير متطابقة');
-      return false;
-    }
-
-    if (!isTermsAccepted.value) {
-      _showError('يرجى الموافقة على الشروط والأحكام');
-      return false;
-    }
-
-    return true;
-  }
-
-  bool _validateOtp() {
-    if (otpController.text.trim().isEmpty) {
-      _showError('يرجى إدخال رمز التحقق');
-      return false;
-    }
-
-    if (otpController.text.trim().length != 6) {
-      _showError('رمز التحقق يجب أن يكون 6 أرقام');
-      return false;
-    }
-
-    return true;
-  }
-
-  bool _validatePhone() {
-    if (phoneController.text.trim().isEmpty) {
-      _showError('يرجى إدخال رقم الهاتف');
-      return false;
-    }
-
-    if (phoneController.text.trim().length < 10) {
-      _showError('يرجى إدخال رقم هاتف صحيح');
-      return false;
-    }
-
-    return true;
-  }
-
-  bool _validateResetPassword() {
-    if (newPasswordController.text.isEmpty) {
-      _showError('يرجى إدخال كلمة المرور الجديدة');
-      return false;
-    }
-
-    if (newPasswordController.text.length < 6) {
-      _showError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
-      return false;
-    }
-
-    if (newPasswordController.text != confirmNewPasswordController.text) {
-      _showError('كلمة المرور غير متطابقة');
-      return false;
-    }
-
-    return true;
+    Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (otpTimer.value > 0) {
+        otpTimer.value--;
+      } else {
+        canResendOtp.value = true;
+        timer.cancel();
+      }
+    });
   }
 
   void _showError(String message) {
     Get.snackbar(
-      'خطأ',
+      'error'.tr,
       message,
       backgroundColor: Colors.orange,
       colorText: Colors.white,
@@ -721,74 +1408,110 @@ class AuthController extends GetxController {
     );
   }
 
-  // Timer Methods
-  void _startAccountVerificationTimer() {
-    canResendOtp.value = false;
-    otpTimer.value = 120; // دقيقتان
+  String _formatPhoneNumber(String phone) {
+    phone = phone.replaceAll(RegExp(r'[\s-]'), '');
 
-    Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (otpTimer.value > 0) {
-        otpTimer.value--;
-      } else {
-        canResendOtp.value = true;
-        timer.cancel();
-      }
-    });
+    if (phone.startsWith('00968')) {
+      return '+${phone.substring(2)}';
+    } else if (phone.startsWith('968')) {
+      return '+$phone';
+    } else if (phone.startsWith('9') && phone.length == 8) {
+      return '+968$phone';
+    } else if (phone.startsWith('0') && phone.length == 9) {
+      return '+968${phone.substring(1)}';
+    } else if (!phone.startsWith('+')) {
+      return '+968$phone';
+    }
+    return phone;
   }
 
-  void _startOtpTimer() {
-    canResendOtp.value = false;
-    otpTimer.value = 60; // دقيقة واحدة
+  // إدارة الفئات
+  void toggleCategorySelection(Map<String, dynamic> category) {
+    final categoryId = category['id'];
+    final index = selectedCategories.indexWhere((c) => c['id'] == categoryId);
 
-    Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (otpTimer.value > 0) {
-        otpTimer.value--;
-      } else {
-        canResendOtp.value = true;
-        timer.cancel();
-      }
-    });
+    if (index >= 0) {
+      selectedCategories.removeAt(index);
+    } else {
+      selectedCategories.add(category);
+    }
   }
 
-  // Form Management
-  void _clearForms() {
-    emailController.clear();
-    passwordController.clear();
-    nameController.clear();
-    signupEmailController.clear();
-    signupPasswordController.clear();
-    phoneController.clear();
-    confirmPasswordController.clear();
-    descriptionController.clear();
-    otpController.clear();
-    isPasswordVisible.value = false;
-    isConfirmPasswordVisible.value = false;
+  void updateSelectedCategories(
+      List<Map<String, dynamic>> newSelectedCategories) {
+    selectedCategories.value = newSelectedCategories;
+  }
+
+  bool isCategorySelected(Map<String, dynamic> category) {
+    return selectedCategories.any((c) => c['id'] == category['id']);
+  }
+
+  // إدارة القوائم المنسدلة
+  void onGovernorateChanged(String? value) {
+    selectedGovernorate.value = value;
     selectedState.value = null;
-    selectedCity.value = null;
-    // selectedService.value = null;
-    selectedImage.value = null;
-    selectedProfileImage.value = null;
-    selectedIDImage.value = null;
-    selectedLicenseImage.value = null;
-    isTermsAccepted.value = false;
-    isAccountVerified.value = false;
-    otpTimer.value = 0;
-    canResendOtp.value = true;
-    _registrationData.clear();
+    selectedCategories.clear();
+    filteredCategories.clear();
   }
 
-  void _clearResetPasswordForms() {
-    phoneController.clear();
-    otpController.clear();
-    newPasswordController.clear();
-    confirmNewPasswordController.clear();
-    isNewPasswordVisible.value = false;
-    isConfirmNewPasswordVisible.value = false;
-    otpTimer.value = 0;
-    canResendOtp.value = true;
+  void onStateChanged(String? value) {
+    selectedState.value = value;
+    selectedCategories.clear();
+    _filterCategoriesByState();
   }
 
-  // Image Management
+  List<String> get availableGovernorates {
+    return omanStates.map((gov) {
+      return isArabic
+          ? gov['governorate']['ar'] as String
+          : gov['governorate']['en'] as String;
+    }).toList();
+  }
+
+  List<String> get availableStates {
+    if (selectedGovernorate.value == null) return [];
+
+    final selectedGov = omanStates.firstWhere(
+      (gov) => gov['value'] == selectedGovernorate.value,
+      orElse: () => {'states': []},
+    );
+
+    final states = selectedGov['states'] as List;
+    return states.map((state) {
+      return isArabic
+          ? state['label']['ar'] as String
+          : state['label']['en'] as String;
+    }).toList();
+  }
+
+  String? getGovernorateValueFromLabel(String label) {
+    for (var gov in omanStates) {
+      if (gov['governorate']['ar'] == label ||
+          gov['governorate']['en'] == label) {
+        return gov['value'];
+      }
+    }
+    return null;
+  }
+
+  String? getStateValueFromLabel(String label) {
+    if (selectedGovernorate.value == null) return null;
+
+    final selectedGov = omanStates.firstWhere(
+      (gov) => gov['value'] == selectedGovernorate.value,
+      orElse: () => {'states': []},
+    );
+
+    final states = selectedGov['states'] as List;
+    for (var state in states) {
+      if (state['label']['ar'] == label || state['label']['en'] == label) {
+        return state['value'];
+      }
+    }
+    return null;
+  }
+
+  // رفع الصور
   Future<void> pickImage({String type = 'profile'}) async {
     try {
       final XFile? image = await _picker.pickImage(
@@ -814,8 +1537,8 @@ class AuthController extends GetxController {
         }
 
         Get.snackbar(
-          'تم اختيار الصورة',
-          'تم اختيار الصورة بنجاح',
+          'image_selected'.tr,
+          'image_selected_success'.tr,
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.green,
           colorText: Colors.white,
@@ -823,8 +1546,8 @@ class AuthController extends GetxController {
       }
     } catch (e) {
       Get.snackbar(
-        'خطأ',
-        'حدث خطأ أثناء اختيار الصورة',
+        'error'.tr,
+        'image_selection_error'.tr,
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
@@ -832,51 +1555,20 @@ class AuthController extends GetxController {
     }
   }
 
-  // Dropdown Management
-  void onStateChanged(String? value) {
-    selectedState.value = value;
-    selectedCity.value = null;
+  // فحص التحديث
+  Future<bool> checkForAppUpdate() async {
+    try {
+      print('Checking for app update...');
+      final hasUpdate = await _authService.checkForUpdate();
+      print('Update check result: $hasUpdate');
+      return hasUpdate;
+    } catch (e) {
+      print('Error checking for update: $e');
+      return false;
+    }
   }
 
-  void onCityChanged(String? value) {
-    selectedCity.value = value;
-  }
-
-  // void onServiceChanged(String? value) {
-  //   selectedService.value = value;
-  // }
-
-  List<String> get availableCities {
-    if (selectedState.value == null) return [];
-    return citiesByState[selectedState.value] ?? [];
-  }
-
-  // UI State Management
-  void toggleTermsAccepted() {
-    isTermsAccepted.value = !isTermsAccepted.value;
-  }
-
-  void togglePasswordVisibility() {
-    isPasswordVisible.value = !isPasswordVisible.value;
-  }
-
-  void toggleConfirmPasswordVisibility() {
-    isConfirmPasswordVisible.value = !isConfirmPasswordVisible.value;
-  }
-
-  void toggleNewPasswordVisibility() {
-    isNewPasswordVisible.value = !isNewPasswordVisible.value;
-  }
-
-  void toggleConfirmNewPasswordVisibility() {
-    isConfirmNewPasswordVisible.value = !isConfirmNewPasswordVisible.value;
-  }
-
-  void toggleRememberMe() {
-    rememberMe.value = !rememberMe.value;
-  }
-
-  // Utility Methods
+  // خصائص للتحقق من الحالة
   bool get isTokenValid {
     final token = _storageService.userToken;
     if (token.isEmpty) return false;
@@ -893,22 +1585,5 @@ class AuthController extends GetxController {
     } catch (e) {
       print('Error updating user data: $e');
     }
-  }
-
-  @override
-  void onClose() {
-    emailController.dispose();
-    passwordController.dispose();
-    signupPasswordController.dispose();
-
-    nameController.dispose();
-    signupEmailController.dispose();
-    phoneController.dispose();
-    confirmPasswordController.dispose();
-    descriptionController.dispose();
-    otpController.dispose();
-    newPasswordController.dispose();
-    confirmNewPasswordController.dispose();
-    super.onClose();
   }
 }

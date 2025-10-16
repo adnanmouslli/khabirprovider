@@ -1,13 +1,16 @@
 class AppConfig {
   // API Configuration
+
+  //  static const String baseUrl = 'http://192.168.74.1:3069/api';
+
   static const String baseUrl = 'http://31.97.71.187:3000/api';
-  static const String socketUrl = 'wss://your-backend-url.com';
+  static const String socketUrl = 'ws://31.97.71.187:3000';
   static const String fileUrl = 'http://31.97.71.187:3000';
 
   static const String imageBaseUrl = 'http://31.97.71.187:3000';
 
 
-  static const String supportWhatsAppNumber = '+963999999999';
+  static const String supportWhatsAppNumber = '+9639999999';
 
   // App Information
   static const String appName = 'Khabir';

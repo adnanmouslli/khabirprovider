@@ -15,9 +15,11 @@ class CustomTextField extends StatelessWidget {
   final int maxLines;
   final String? Function(String?)? validator;
   final void Function(String)? onChanged;
+  final void Function(String)? onSubmitted;
   final void Function()? onTap;
   final bool readOnly;
   final FocusNode? focusNode;
+  final TextInputAction? textInputAction;
 
   const CustomTextField({
     Key? key,
@@ -33,9 +35,11 @@ class CustomTextField extends StatelessWidget {
     this.maxLines = 1,
     this.validator,
     this.onChanged,
+    this.onSubmitted,
     this.onTap,
     this.readOnly = false,
     this.focusNode,
+    this.textInputAction,
   }) : super(key: key);
 
   @override
@@ -56,7 +60,7 @@ class CustomTextField extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: AppColors.primary, // Light gray border
+              color: AppColors.primary,
               width: 1.5,
             ),
           ),
@@ -68,9 +72,12 @@ class CustomTextField extends StatelessWidget {
             maxLines: maxLines,
             validator: validator,
             onChanged: onChanged,
+            onFieldSubmitted: onSubmitted,
             onTap: onTap,
             readOnly: readOnly,
             focusNode: focusNode,
+            textInputAction: textInputAction ?? 
+                (maxLines == 1 ? TextInputAction.done : TextInputAction.newline),
             style: const TextStyle(
               fontSize: 16,
               color: Color(0xFF111827),
@@ -85,30 +92,30 @@ class CustomTextField extends StatelessWidget {
               ),
               prefixIcon: prefixIcon != null
                   ? Container(
-                width: 48,
-                height: 48,
-                alignment: Alignment.center,
-                child: Icon(
-                  prefixIcon,
-                  color: const Color(0xFF6B7280),
-                  size: 20,
-                ),
-              )
+                      width: 48,
+                      height: 48,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        prefixIcon,
+                        color: const Color(0xFF6B7280),
+                        size: 20,
+                      ),
+                    )
                   : null,
               suffixIcon: suffixIcon != null
                   ? GestureDetector(
-                onTap: onSuffixTap,
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  alignment: Alignment.center,
-                  child: Icon(
-                    suffixIcon,
-                    color: const Color(0xFF6B7280),
-                    size: 20,
-                  ),
-                ),
-              )
+                      onTap: onSuffixTap,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        alignment: Alignment.center,
+                        child: Icon(
+                          suffixIcon,
+                          color: const Color(0xFF6B7280),
+                          size: 20,
+                        ),
+                      ),
+                    )
                   : null,
               border: InputBorder.none,
               enabledBorder: InputBorder.none,

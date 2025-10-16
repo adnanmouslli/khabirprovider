@@ -1,5 +1,8 @@
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import 'package:khabir/services/language_service.dart';
+import 'package:khabir/utils/app_config.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/order_model.dart';
 import '../services/orders_service.dart';
 
@@ -10,6 +13,9 @@ class NotificationsController extends GetxController {
   var notifications = <Map<String, dynamic>>[].obs;
   var isLoading = false.obs;
   var isRefreshing = false.obs;
+  final LanguageService _languageService = Get.find<LanguageService>();
+
+  bool get isArabic => _languageService.isArabic;
 
   @override
   void onInit() {
@@ -17,7 +23,7 @@ class NotificationsController extends GetxController {
     loadNotifications();
   }
 
-  // تحميل الإشعارات من الطلبات المعلقة
+  // Load notifications from pending orders
   Future<void> loadNotifications() async {
     try {
       isLoading.value = true;
@@ -25,39 +31,44 @@ class NotificationsController extends GetxController {
 
       final orders = await _ordersService.getProviderOrders();
 
-      // تصفية الطلبات المعلقة فقط
-      final pendingOrders = orders.where((order) => order.status.toLowerCase() == 'pending').toList();
+      // Filter pending orders only
+      final pendingOrders = orders
+          .where((order) => order.status.toLowerCase() == 'pending')
+          .toList();
 
-      // تحويل الطلبات إلى إشعارات
-      notifications.value = pendingOrders.map((order) => _toNotification(order)).toList();
+      // Convert orders to notifications
+      notifications.value =
+          pendingOrders.map((order) => _toNotification(order)).toList();
 
       print('Loaded ${notifications.length} notifications');
     } catch (e) {
       print('Error loading notifications: $e');
-      _showErrorSnackbar('فشل في تحميل الإشعارات', e.toString());
+      _showErrorSnackbar('notification_load_error'.tr, e.toString());
     } finally {
       isLoading.value = false;
     }
   }
 
-  // تحويل OrderModel إلى تنسيق الإشعار
+  // Convert OrderModel to notification format
   Map<String, dynamic> _toNotification(OrderModel order) {
-    // معالجة الخدمات المتعددة
+    // Handle multiple services
     String category = '';
     String type = '';
 
     if (order.isMultipleServices && order.services.isNotEmpty) {
-      // للخدمات المتعددة، استخدم الخدمة الأولى كأساس
-      category = order.services.first.category?.titleAr ?? order.services.first.serviceTitle;
-      type = order.services.first.serviceDescription;
+      // ✅ استخدام getTitle() للحصول على العنوان حسب اللغة
+      category = order.services.first.category?.titleAr ??
+          order.services.first.getTitle();
+      type = order.services.first.serviceDescription ?? '';
     } else if (order.services.isNotEmpty) {
-      // للخدمة الواحدة
-      category = order.services.first.category?.titleAr ?? order.services.first.serviceTitle;
-      type = order.services.first.serviceDescription;
+      // ✅ للخدمة الواحدة
+      category = order.services.first.category?.titleAr ??
+          order.services.first.getTitle();
+      type = order.services.first.serviceDescription ?? '';
     } else {
-      // fallback للنظام القديم
-      category = 'خدمة';
-      type = 'غير محدد';
+      // Fallback for old system
+      category = 'service'.tr;
+      type = 'not_specified'.tr;
     }
 
     return {
@@ -65,11 +76,12 @@ class NotificationsController extends GetxController {
       'category': category,
       'type': type,
       'number': order.quantity,
-      'duration': order.duration ?? (order.scheduledDate != null
-          ? '${order.scheduledDate!.day}/${order.scheduledDate!.month}/${order.scheduledDate!.year}'
-          : 'Now'),
+      'duration': order.duration ??
+          (order.scheduledDate != null
+              ? '${order.scheduledDate!.day}/${order.scheduledDate!.month}/${order.scheduledDate!.year}'
+              : 'now'.tr),
       'price': order.providerAmount,
-      'state': order.user.state ?? 'غير محدد',
+      'state': order.user.state ?? 'not_specified'.tr,
       'customerName': order.user.name,
       'customerPhone': order.user.phone,
       'requestTime': order.orderDate,
@@ -77,33 +89,41 @@ class NotificationsController extends GetxController {
       'location': {
         'latitude': order.providerLocation?.lat ?? order.user.latitude ?? 0.0,
         'longitude': order.providerLocation?.lng ?? order.user.longitude ?? 0.0,
-        'address': order.locationDetails ?? order.location ?? 'غير محدد',
+        'address':
+            order.locationDetails ?? order.location ?? 'not_specified'.tr,
       },
       'status': order.status.toLowerCase(),
       'originalOrder': order,
-      // معلومات الخدمات المتعددة
+      // Multiple services information
       'isMultipleServices': order.isMultipleServices,
-      'services': order.services.map((s) => {
-        'serviceTitle': s.serviceTitle,
-        'serviceDescription': s.serviceDescription,
-        'quantity': s.quantity,
-        'totalPrice': s.totalPrice,
-        'category': s.category?.titleAr,
-      }).toList(),
+      'services': order.services
+          .map((s) => {
+                'serviceTitleAr': s.serviceTitleAr,
+                'serviceTitleEn': s.serviceTitleEn,
+                'serviceTitle': s.getTitle(),
+                'serviceDescription': s.serviceDescription,
+                'quantity': s.quantity,
+                'totalPrice': s.totalPrice,
+                'unitPrice': s.unitPrice,
+                'commission': s.commission,
+                'serviceId': s.serviceId,
+                'serviceImage': s.serviceImage,
+                'category': s.category?.titleAr,
+              })
+          .toList(),
       'servicesCount': order.services.length,
-      'totalServicesQuantity': order.services.fold(0, (sum, s) => sum + s.quantity),
+      'totalServicesQuantity':
+          order.services.fold(0, (sum, s) => sum + s.quantity),
     };
   }
 
-  // تحديد الأولوية بناءً على منطق معين
+  // Determine priority based on logic
   String _getPriority(OrderModel order) {
-    // يمكنك تخصيص هذا المنطق بناءً على متطلباتك
     if (order.providerAmount > 1000) return 'high';
     if (order.providerAmount > 500) return 'medium';
     return 'low';
   }
 
-  // عرض تفاصيل الخدمات المتعددة
   void viewServicesDetails(int index) {
     if (index < 0 || index >= notifications.length) return;
 
@@ -113,10 +133,10 @@ class NotificationsController extends GetxController {
 
     if (!isMultipleServices || services.isEmpty) {
       Get.snackbar(
-        'معلومات الخدمات',
-        'هذا الطلب يحتوي على خدمة واحدة فقط',
+        'services_info'.tr,
+        'single_service_only'.tr,
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.blue,
+        backgroundColor: Colors.grey[800],
         colorText: Colors.white,
         duration: const Duration(seconds: 3),
         icon: const Icon(Icons.info, color: Colors.white),
@@ -124,117 +144,163 @@ class NotificationsController extends GetxController {
       return;
     }
 
-    // عرض نافذة تفاصيل الخدمات
     Get.dialog(
-      AlertDialog(
-        title: Text('تفاصيل الخدمات (${services.length} خدمة)'),
-        content: SizedBox(
-          width: double.maxFinite,
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 8,
+        child: Container(
+          width: Get.width * 0.92,
+          height: Get.height * 0.85,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey[300]!, width: 1),
+          ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Text('الطلب رقم: ${notification['orderId']}'),
-              Text('العميل: ${notification['customerName']}'),
-              const SizedBox(height: 16),
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: services.length,
-                  itemBuilder: (context, serviceIndex) {
-                    final service = services[serviceIndex];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    service['serviceTitle'] ?? 'غير محدد',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    '#${serviceIndex + 1}',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.blue,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              service['serviceDescription'] ?? 'لا يوجد وصف',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                            ),
-                            if (service['category'] != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                'الفئة: ${service['category']}',
-                                style: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('الكمية: ${service['quantity'] ?? 0}'),
-                                Text(
-                                  'السعر: ${service['totalPrice'] ?? 0} OMR',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.green,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 12),
+              // Header رسمي ومبسط
               Container(
-                padding: const EdgeInsets.all(12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.grey[50],
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey[200]!, width: 1),
+                  ),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'المجموع الكلي: ${notification['totalServicesQuantity']} قطعة',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    Icon(
+                      Icons.receipt_long,
+                      color: Colors.grey[700],
+                      size: 24,
                     ),
-                    Text(
-                      'إجمالي السعر: ${notification['price']} OMR',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Colors.green,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'order_details'.tr,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[900],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${services.length} ${'services_count_text'.tr}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Get.back(),
+                      icon: Icon(
+                        Icons.close,
+                        color: Colors.grey[600],
+                        size: 22,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.grey[100],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // المحتوى القابل للتمرير
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      // قائمة الخدمات
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: services.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, serviceIndex) {
+                          final service = services[serviceIndex];
+                          return _buildServiceCard(service, serviceIndex);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // أزرار العمل
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    top: BorderSide(color: Colors.grey[200]!, width: 1),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Get.back(),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side:
+                              BorderSide(color: Colors.grey[300]!, width: 1.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          'dialog_close'.tr,
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontWeight: FontWeight.w500,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Get.back();
+                          acceptNotification(index);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey[900],
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          'dialog_accept_order'.tr,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -243,17 +309,256 @@ class NotificationsController extends GetxController {
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('إغلاق'),
+      ),
+    );
+  }
+
+  // بناء صف معلومات الملخص
+  Widget _buildSummaryRow(String label, String value, {bool isPrice = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 15,
+            color: Colors.grey[700],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            color: isPrice ? Colors.grey[900] : Colors.grey[800],
+            fontWeight: isPrice ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // بناء كارت الخدمة المحسن
+  Widget _buildServiceCard(Map<String, dynamic> service, int index) {
+    String serviceName = isArabic
+        ? service['serviceTitleAr'] ??
+            service['serviceTitleEn'] ??
+            service['serviceTitle'] ??
+            'خدمة غير محددة'
+        : service['serviceTitleEn'] ??
+            service['serviceTitleAr'] ??
+            service['serviceTitle'] ??
+            'Service not specified';
+
+    // استخراج باقي المعلومات
+    String quantity = '${service['quantity'] ?? 0}';
+    String price =
+        '${service['totalPrice'] ?? service['unitPrice'] ?? service['price'] ?? 0} ${'omr'.tr}';
+    String description =
+        service['serviceDescription'] ?? service['description'] ?? '';
+    String? imageUrl = service['serviceImage'];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[200]!, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // رأس الخدمة
+          Row(
+            children: [
+              // صورة الخدمة إن وجدت
+              if (imageUrl != null && imageUrl.isNotEmpty)
+                Container(
+                  width: 40,
+                  height: 40,
+                  margin: const EdgeInsets.only(left: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(6),
+                    image: DecorationImage(
+                      image: NetworkImage(imageUrl.startsWith('http')
+                          ? imageUrl
+                          : '${AppConfig.imageBaseUrl}$imageUrl'),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  width: 32,
+                  height: 32,
+                  margin: const EdgeInsets.only(left: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                ),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      serviceName,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[900],
+                      ),
+                    ),
+                  
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // تفاصيل الخدمة
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Column(
+              children: [
+                _buildServiceDetailRow('quantity'.tr, quantity),
+                const SizedBox(height: 8),
+                _buildServiceDetailRow('total_price'.tr, price),
+                if (service['unitPrice'] != null) ...[
+                  const SizedBox(height: 8),
+                  _buildServiceDetailRow(
+                      'total_price'.tr, '${service['unitPrice']} ${'omr'.tr}'),
+                ],
+                if (service['commission'] != null) ...[
+                  const SizedBox(height: 8),
+                  _buildServiceDetailRow(
+                      'commission'.tr, '${service['commission']} ${'omr'.tr}'),
+                ],
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  _buildServiceDetailRow('description'.tr, description),
+                ],
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  // قبول الطلب/الإشعار
+  // بناء صف تفاصيل الخدمة
+  Widget _buildServiceDetailRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const Text(': '),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[800],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryItem(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF64748B),
+            fontWeight: FontWeight.w500,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+            color: color,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoItem(String label, String value, IconData icon) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: const Color(0xFF64748B),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1E293B),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Accept notification/order
   Future<void> acceptNotification(int index) async {
     if (index >= 0 && index < notifications.length) {
       final notification = notifications[index];
@@ -261,49 +566,47 @@ class NotificationsController extends GetxController {
       final isMultipleServices = notification['isMultipleServices'] ?? false;
       final servicesCount = notification['servicesCount'] ?? 1;
 
-      // إنشاء نص مخصص للخدمات المتعددة
+      // Create custom text for multiple services
       String contentText = '';
       if (isMultipleServices) {
-        contentText = 'هل تريد قبول طلب ${notification['type']} في ${notification['state']}؟\n'
-            'عدد الخدمات: $servicesCount خدمة\n'
-            'إجمالي الكمية: ${notification['totalServicesQuantity']}\n'
-            'السعر الإجمالي: ${notification['price']} OMR';
+        contentText =
+            '${'accept_order_question'.tr} ${notification['type']} ${'in'.tr} ${notification['state']}?\n'
+            '${'services_count'.tr}: $servicesCount ${'service'.tr}\n'
+            '${'total_quantity'.tr}: ${notification['totalServicesQuantity']}\n'
+            '${'total_price'.tr}: ${notification['price']} ${'omr'.tr}';
       } else {
-        contentText = 'هل تريد قبول طلب ${notification['type']} في ${notification['state']}؟\n'
-            'السعر: ${notification['price']} OMR\n'
-            'العدد: ${notification['number']}';
+        contentText =
+            '${'accept_order_question'.tr} ${notification['type']} ${'in'.tr} ${notification['state']}?\n'
+            '${'price'.tr}: ${notification['price']} ${'omr'.tr}\n'
+            '${'quantity'.tr}: ${notification['number']}';
       }
 
       Get.dialog(
-        AlertDialog(
-          title: const Text('تأكيد القبول'),
-          content: Text(contentText),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(),
-              child: const Text('إلغاء'),
+        _buildCustomDialog(
+          title: 'confirm_acceptance'.tr,
+          icon: Icons.check_circle_outline,
+          iconColor: Colors.green,
+          content: Text(
+            contentText,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[700],
+              height: 1.5,
             ),
-            if (isMultipleServices) ...[
-              TextButton(
-                onPressed: () {
-                  Get.back();
-                  viewServicesDetails(index);
-                },
-                child: const Text(
-                  'عرض التفاصيل',
-                  style: TextStyle(color: Colors.blue),
-                ),
-              ),
-            ],
-            TextButton(
+          ),
+          actions: [
+            _buildCustomButton(
+              text: 'cancel'.tr,
+              onPressed: () => Get.back(),
+            ),
+         
+            _buildCustomButton(
+              text: 'accept'.tr,
+              isSuccess: true,
               onPressed: () {
                 Get.back();
                 _confirmAcceptNotification(index, orderId);
               },
-              child: const Text(
-                'قبول',
-                style: TextStyle(color: Colors.green),
-              ),
             ),
           ],
         ),
@@ -311,36 +614,149 @@ class NotificationsController extends GetxController {
     }
   }
 
-  // تأكيد قبول الطلب
+  // Confirm accept order
   Future<void> _confirmAcceptNotification(int index, int orderId) async {
     try {
       isLoading.value = true;
       print('Accepting order: $orderId');
 
-      // استدعاء API لقبول الطلب
+      // Call API to accept order
       await _ordersService.acceptOrder(orderId);
 
-      // إزالة الإشعار من القائمة
+      // Remove notification from list
       notifications.removeAt(index);
 
-      Get.snackbar(
-        'تم القبول!',
-        'تم قبول الطلب بنجاح.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
+      // رسالة نجاح محسنة بخلفية بيضاء
+      Get.rawSnackbar(
+        titleText: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.green.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle,
+                  color: Colors.green,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'accepted'.tr,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green,
+                      ),
+                    ),
+                    Text(
+                      'order_accepted_successfully'.tr,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        snackPosition: SnackPosition.TOP,
+        margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 4),
-        icon: const Icon(Icons.check_circle, color: Colors.white),
+        backgroundColor: Colors.transparent,
       );
     } catch (e) {
       print('Error accepting order: $e');
-      _showErrorSnackbar('فشل في قبول الطلب', e.toString());
+
+      // رسالة خطأ محسنة بخلفية بيضاء
+      Get.rawSnackbar(
+        titleText: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.red.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.error,
+                  color: Colors.red,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'accept_order_error'.tr,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red,
+                      ),
+                    ),
+                    Text(
+                      e.toString(),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[700],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        snackPosition: SnackPosition.TOP,
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 5),
+        backgroundColor: Colors.transparent,
+      );
     } finally {
       isLoading.value = false;
     }
   }
 
-  // رفض الطلب/الإشعار
+  // Reject notification/order
   Future<void> rejectNotification(int index) async {
     if (index >= 0 && index < notifications.length) {
       final notification = notifications[index];
@@ -350,44 +766,42 @@ class NotificationsController extends GetxController {
 
       String contentText = '';
       if (isMultipleServices) {
-        contentText = 'هل تريد رفض طلب ${notification['type']} في ${notification['state']}؟\n'
-            'عدد الخدمات: $servicesCount خدمة\n'
-            'لن تتمكن من التراجع عن هذا القرار.';
+        contentText =
+            '${'reject_order_question'.tr} ${notification['type']} ${'in'.tr} ${notification['state']}?\n'
+            '${'services_count'.tr}: $servicesCount ${'service'.tr}\n'
+            '${'cannot_undo'.tr}';
       } else {
-        contentText = 'هل تريد رفض طلب ${notification['type']} في ${notification['state']}؟\n'
-            'لن تتمكن من التراجع عن هذا القرار.';
+        contentText =
+            '${'reject_order_question'.tr} ${notification['type']} ${'in'.tr} ${notification['state']}?\n'
+            '${'cannot_undo'.tr}';
       }
 
       Get.dialog(
-        AlertDialog(
-          title: const Text('تأكيد الرفض'),
-          content: Text(contentText),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(),
-              child: const Text('إلغاء'),
+        _buildCustomDialog(
+          title: 'confirm_rejection'.tr,
+          icon: Icons.cancel_outlined,
+          iconColor: Colors.red,
+          content: Text(
+            contentText,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[700],
+              height: 1.5,
             ),
-            if (isMultipleServices) ...[
-              TextButton(
-                onPressed: () {
-                  Get.back();
-                  viewServicesDetails(index);
-                },
-                child: const Text(
-                  'عرض التفاصيل',
-                  style: TextStyle(color: Colors.blue),
-                ),
-              ),
-            ],
-            TextButton(
+          ),
+          actions: [
+            _buildCustomButton(
+              text: 'cancel'.tr,
+              onPressed: () => Get.back(),
+            ),
+           
+            _buildCustomButton(
+              text: 'reject'.tr,
+              isDestructive: true,
               onPressed: () {
                 Get.back();
                 _confirmRejectNotification(index, orderId);
               },
-              child: const Text(
-                'رفض',
-                style: TextStyle(color: Colors.red),
-              ),
             ),
           ],
         ),
@@ -395,21 +809,21 @@ class NotificationsController extends GetxController {
     }
   }
 
-  // تأكيد رفض الطلب
+  // Confirm reject order
   Future<void> _confirmRejectNotification(int index, int orderId) async {
     try {
       isLoading.value = true;
       print('Rejecting order: $orderId');
 
-      // استدعاء API لرفض الطلب
+      // Call API to reject order
       await _ordersService.rejectOrder(orderId);
 
-      // إزالة الإشعار من القائمة
+      // Remove notification from list
       notifications.removeAt(index);
 
       Get.snackbar(
-        'تم الرفض',
-        'تم رفض الطلب.',
+        'rejected'.tr,
+        'order_rejected'.tr,
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
@@ -418,64 +832,127 @@ class NotificationsController extends GetxController {
       );
     } catch (e) {
       print('Error rejecting order: $e');
-      _showErrorSnackbar('فشل في رفض الطلب', e.toString());
+      _showErrorSnackbar('reject_order_error'.tr, e.toString());
     } finally {
       isLoading.value = false;
     }
   }
 
   // عرض الموقع على الخريطة
-  void viewLocation(int index) {
+  void viewLocation(int index) async {
     if (index >= 0 && index < notifications.length) {
       final notification = notifications[index];
-      final location = notification['location'];
+      final userLocation = notification['user'];
 
-      Get.snackbar(
-        'الموقع',
-        'عرض موقع العميل: ${location['address']}',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.blue,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
-        icon: const Icon(Icons.location_on, color: Colors.white),
-      );
+      if (userLocation != null) {
+        final latitude = userLocation['latitude'];
+        final longitude = userLocation['longitude'];
+        final address = userLocation['state'];
 
-      // TODO: فتح الخريطة مع الموقع
-      // يمكنك إضافة التكامل مع Google Maps هنا
+        Get.snackbar(
+          'الموقع',
+          'عرض موقع العميل: $address',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.blue,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+          icon: const Icon(Icons.location_on, color: Colors.white),
+        );
+
+        final url =
+            'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
+
+        try {
+          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+        } catch (e) {
+          Get.snackbar('خطأ', 'الموقع غير متوفر');
+        }
+      } else {
+        Get.snackbar('خطأ', 'الموقع غير متوفر');
+      }
     }
   }
 
-  // الاتصال بالعميل
+  // Call customer
   void callCustomer(int index) {
     if (index >= 0 && index < notifications.length) {
       final notification = notifications[index];
       final customerPhone = notification['customerPhone'];
 
       Get.dialog(
-        AlertDialog(
-          title: const Text('الاتصال بالعميل'),
-          content: Text('هل تريد الاتصال بالعميل؟\nرقم الهاتف: $customerPhone'),
+        _buildCustomDialog(
+          title: 'call_customer'.tr,
+          icon: Icons.phone_outlined,
+          iconColor: Colors.blue,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'call_customer_question'.tr,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[700],
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[200]!, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.phone,
+                      color: Colors.grey[600],
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${'phone_number'.tr}: ',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      customerPhone,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[900],
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           actions: [
-            TextButton(
+            _buildCustomButton(
+              text: 'cancel'.tr,
               onPressed: () => Get.back(),
-              child: const Text('إلغاء'),
             ),
-            TextButton(
+            _buildCustomButton(
+              text: 'call'.tr,
+              isSuccess: true,
+              icon: Icons.phone,
               onPressed: () {
                 Get.back();
-                // TODO: فتح تطبيق الهاتف للاتصال
+                // TODO: Open phone app to call
                 Get.snackbar(
-                  'الاتصال',
-                  'سيتم فتح تطبيق الهاتف للاتصال بالعميل',
+                  'call'.tr,
+                  'opening_phone_app'.tr,
                   snackPosition: SnackPosition.BOTTOM,
                   backgroundColor: Colors.blue,
                   colorText: Colors.white,
                 );
               },
-              child: const Text(
-                'اتصال',
-                style: TextStyle(color: Colors.green),
-              ),
             ),
           ],
         ),
@@ -483,15 +960,15 @@ class NotificationsController extends GetxController {
     }
   }
 
-  // تحديث الإشعارات
+  // Refresh notifications
   Future<void> refreshNotifications() async {
     try {
       isRefreshing.value = true;
       await loadNotifications();
 
       Get.snackbar(
-        'تم التحديث',
-        'تم تحديث قائمة الإشعارات',
+        'updated'.tr,
+        'notifications_updated'.tr,
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.blue,
         colorText: Colors.white,
@@ -502,38 +979,81 @@ class NotificationsController extends GetxController {
     }
   }
 
-  // مسح جميع الإشعارات
+  // Clear all notifications
   void clearAllNotifications() {
     Get.dialog(
-      AlertDialog(
-        title: const Text('مسح جميع الإشعارات'),
-        content: const Text('هل أنت متأكد من مسح جميع الإشعارات؟\nهذا سيرفض جميع الطلبات المعلقة.'),
+      _buildCustomDialog(
+        title: 'clear_all_notifications'.tr,
+        icon: Icons.delete_sweep_outlined,
+        iconColor: Colors.red,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'clear_all_confirm'.tr,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[700],
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!, width: 1),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.red[600],
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'reject_all_pending'.tr,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.red[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
-          TextButton(
+          _buildCustomButton(
+            text: 'cancel'.tr,
             onPressed: () => Get.back(),
-            child: const Text('إلغاء'),
           ),
-          TextButton(
+          _buildCustomButton(
+            text: 'clear'.tr,
+            isDestructive: true,
+            icon: Icons.delete_forever,
             onPressed: () async {
               Get.back();
               await _clearAllNotifications();
             },
-            child: const Text(
-              'مسح',
-              style: TextStyle(color: Colors.red),
-            ),
           ),
         ],
       ),
     );
   }
 
-  // مسح جميع الإشعارات من الخادم
+  // Clear all notifications from server
   Future<void> _clearAllNotifications() async {
     try {
       isLoading.value = true;
 
-      // رفض جميع الطلبات المعلقة
+      // Reject all pending orders
       for (var notification in notifications) {
         await _ordersService.rejectOrder(notification['orderId']);
       }
@@ -541,36 +1061,55 @@ class NotificationsController extends GetxController {
       notifications.clear();
 
       Get.snackbar(
-        'تم المسح',
-        'تم مسح جميع الإشعارات ورفض الطلبات المعلقة',
+        'cleared'.tr,
+        'all_notifications_cleared'.tr,
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
     } catch (e) {
-      _showErrorSnackbar('فشل في مسح الإشعارات', e.toString());
+      _showErrorSnackbar('clear_notifications_error'.tr, e.toString());
     } finally {
       isLoading.value = false;
     }
   }
 
-  // الحصول على ملخص الخدمات
+  // Get services summary
+  // Get services summary
   String getServicesSummary(Map<String, dynamic> notification) {
     final isMultiple = notification['isMultipleServices'] ?? false;
     final services = notification['services'] as List<dynamic>? ?? [];
 
     if (!isMultiple || services.isEmpty) {
-      return notification['category'] ?? 'خدمة';
+      return notification['category'] ?? 'service'.tr;
     }
 
     if (services.length == 1) {
-      return services.first['serviceTitle'] ?? 'خدمة';
+      return isArabic
+          ? services.first['serviceTitleAr'] ??
+              services.first['serviceTitleEn'] ??
+              services.first['serviceTitle'] ??
+              'service'.tr
+          : services.first['serviceTitleEn'] ??
+              services.first['serviceTitleAr'] ??
+              services.first['serviceTitle'] ??
+              'service'.tr;
     }
 
-    return '${services.first['serviceTitle']} + ${services.length - 1} أخرى';
+    final firstServiceTitle = isArabic
+        ? services.first['serviceTitleAr'] ??
+            services.first['serviceTitleEn'] ??
+            services.first['serviceTitle'] ??
+            'service'.tr
+        : services.first['serviceTitleEn'] ??
+            services.first['serviceTitleAr'] ??
+            services.first['serviceTitle'] ??
+            'service'.tr;
+
+    return '$firstServiceTitle + ${services.length - 1} ${'others'.tr}';
   }
 
-  // عرض رسالة خطأ
+  // Show error snackbar
   void _showErrorSnackbar(String title, String message) {
     Get.snackbar(
       title,
@@ -580,6 +1119,165 @@ class NotificationsController extends GetxController {
       colorText: Colors.white,
       duration: const Duration(seconds: 4),
       icon: const Icon(Icons.error, color: Colors.white),
+    );
+  }
+
+  Widget _buildCustomDialog({
+    required String title,
+    IconData? icon,
+    Color? iconColor,
+    required Widget content,
+    required List<Widget> actions,
+  }) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 8,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: Get.width * 0.9,
+          minWidth: 320,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[300]!, width: 1),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[200]!, width: 1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  if (icon != null) ...[
+                    Icon(
+                      icon,
+                      color: iconColor ?? Colors.grey[700],
+                      size: 24,
+                    ),
+                    const SizedBox(width: 16),
+                  ],
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[900],
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Get.back(),
+                    icon: Icon(
+                      Icons.close,
+                      color: Colors.grey[600],
+                      size: 22,
+                    ),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.grey[100],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: content,
+            ),
+
+            // Actions
+            Container(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: actions
+                    .map((action) => Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: action,
+                        ))
+                    .toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomButton({
+    required String text,
+    required VoidCallback onPressed,
+    IconData? icon,
+    bool isDestructive = false,
+    bool isSuccess = false,
+    bool isSecondary = false,
+  }) {
+    Color backgroundColor;
+    Color textColor;
+    Color? borderColor;
+
+    if (isDestructive) {
+      backgroundColor = Colors.red[600]!;
+      textColor = Colors.white;
+    } else if (isSuccess) {
+      backgroundColor = Colors.green[600]!;
+      textColor = Colors.white;
+    } else if (isSecondary) {
+      backgroundColor = Colors.blue[600]!;
+      textColor = Colors.white;
+    } else {
+      backgroundColor = Colors.transparent;
+      textColor = Colors.grey[700]!;
+      borderColor = Colors.grey[300]!;
+    }
+
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: backgroundColor,
+        foregroundColor: textColor,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: borderColor != null
+              ? BorderSide(color: borderColor, width: 1.5)
+              : BorderSide.none,
+        ),
+        elevation: 0,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 18),
+            const SizedBox(width: 8),
+          ],
+          Text(
+            text,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

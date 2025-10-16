@@ -1,3 +1,7 @@
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:khabir/services/language_service.dart';
+
 import '../models/order_model.dart';
 
 class InvoiceModel {
@@ -35,12 +39,16 @@ class InvoiceModel {
     return InvoiceModel(
       id: json['id'] ?? 0,
       orderId: json['orderId'] ?? 0,
-      paymentDate: json['paymentDate'] != null ? DateTime.parse(json['paymentDate']) : null,
+      paymentDate: json['paymentDate'] != null
+          ? DateTime.parse(json['paymentDate'])
+          : null,
       totalAmount: (json['totalAmount'] ?? 0).toDouble(),
       discount: (json['discount'] ?? 0).toDouble(),
       paymentMethod: json['paymentMethod'],
       paymentStatus: json['paymentStatus'] ?? 'unpaid',
-      payoutDate: json['payoutDate'] != null ? DateTime.parse(json['payoutDate']) : null,
+      payoutDate: json['payoutDate'] != null
+          ? DateTime.parse(json['payoutDate'])
+          : null,
       payoutStatus: json['payoutStatus'] ?? 'pending',
       order: InvoiceOrderModel.fromJson(json['order'] ?? {}),
       commissionAmount: (json['commissionAmount'] ?? 0).toDouble(),
@@ -73,17 +81,21 @@ class InvoiceModel {
     String type = '';
 
     if (order.isMultipleServices && order.services.isNotEmpty) {
-      // للخدمات المتعددة، استخدم الخدمة الأولى كأساس
-      category = order.services.first.category?.titleAr ?? order.services.first.serviceTitle;
-      type = order.services.first.serviceDescription;
+      // ✅ استخدام getTitle() للحصول على العنوان حسب اللغة
+      category = order.services.first.category?.titleAr ??
+          order.services.first.getTitle();
+      type = order.services.first.serviceDescription ?? '';
     } else if (order.services.isNotEmpty) {
-      // للخدمة الواحدة
-      category = order.services.first.category?.titleAr ?? order.services.first.serviceTitle;
-      type = order.services.first.serviceDescription;
+      category = order.services.first.category?.titleAr ??
+          order.services.first.getTitle();
+      type = order.services.first.serviceDescription ?? '';
     } else {
-      // fallback للنظام القديم
-      category = 'خدمة';
-      type = 'غير محدد';
+      final LanguageService _languageService = Get.find<LanguageService>();
+
+      category = _languageService.isArabic ? 'خدمة' : 'Service';
+      type = _languageService.isArabic
+          ? 'غير محدد'
+          : 'Not specified';
     }
 
     return {
@@ -92,8 +104,8 @@ class InvoiceModel {
       'phone': order.user.phone,
       'profileImage': order.user.image.isNotEmpty
           ? order.user.image.startsWith('/uploads')
-          ? 'https://your-api-domain.com${order.user.image}' // تحديث بالدومين الحقيقي
-          : order.user.image
+              ? 'https://your-api-domain.com${order.user.image}'
+              : order.user.image
           : 'assets/images/profile1.jpg',
       'state': order.user.state ?? 'غير محدد',
       'category': category,
@@ -104,27 +116,36 @@ class InvoiceModel {
           : 'غير محدد',
       'totalPrice': totalAmount,
       'commission': commissionAmount,
+      'depositAmount': commissionAmount, // ✅ قيمة العربون (الكمشن) فقط
       'afterCommission': providerAmount,
-      'paymentStatus': paymentStatus == 'paid' ? 'Paid' : 'Not paid',
+      'paymentStatus': paymentStatus,
       'completedDate': paymentDate ?? order.orderDate,
       'originalInvoice': this,
-      // معلومات الخدمات المتعددة
       'isMultipleServices': order.isMultipleServices,
-      'services': order.services.map((s) => {
-        'serviceTitle': s.serviceTitle,
-        'serviceDescription': s.serviceDescription,
-        'quantity': s.quantity,
-        'totalPrice': s.totalPrice,
-        'category': s.category?.titleAr,
-      }).toList(),
+      'services': order.services
+          .map((s) => {
+                'serviceTitleAr': s.serviceTitleAr, // ✅ تم التعديل
+                'serviceTitleEn': s.serviceTitleEn, // ✅ جديد
+                'serviceTitle': s.getTitle(), // ✅ للتوافق
+                'serviceDescription': s.serviceDescription,
+                'quantity': s.quantity,
+                'totalPrice': s.totalPrice,
+                'category': s.category?.titleAr,
+              })
+          .toList(),
       'servicesCount': order.services.length,
-      'totalServicesQuantity': order.services.fold(0, (sum, s) => sum + s.quantity),
-      'servicesBreakdown': order.servicesBreakdown.map((s) => {
-        'serviceTitle': s.serviceTitle,
-        'serviceDescription': s.serviceDescription,
-        'quantity': s.quantity,
-        'totalPrice': s.totalPrice,
-      }).toList(),
+      'totalServicesQuantity':
+          order.services.fold(0, (sum, s) => sum + s.quantity),
+      'servicesBreakdown': order.servicesBreakdown
+          .map((s) => {
+                'serviceTitleAr': s.serviceTitleAr, // ✅ تم التعديل
+                'serviceTitleEn': s.serviceTitleEn, // ✅ جديد
+                'serviceTitle': s.getTitle(), // ✅ للتوافق
+                'serviceDescription': s.serviceDescription,
+                'quantity': s.quantity,
+                'totalPrice': s.totalPrice,
+              })
+          .toList(),
     };
   }
 }
@@ -156,23 +177,26 @@ class InvoiceOrderModel {
 
   factory InvoiceOrderModel.fromJson(Map<String, dynamic> json) {
     return InvoiceOrderModel(
-      scheduledDate: json['scheduledDate'] != null ? DateTime.parse(json['scheduledDate']) : null,
-      orderDate: DateTime.parse(json['orderDate'] ?? DateTime.now().toIso8601String()),
+      scheduledDate: json['scheduledDate'] != null
+          ? DateTime.parse(json['scheduledDate'])
+          : null,
+      orderDate:
+          DateTime.parse(json['orderDate'] ?? DateTime.now().toIso8601String()),
       commissionAmount: (json['commissionAmount'] ?? 0).toDouble(),
       providerAmount: (json['providerAmount'] ?? 0).toDouble(),
       quantity: json['quantity'] ?? 0,
       isMultipleServices: json['isMultipleServices'] ?? false,
       servicesBreakdown: json['servicesBreakdown'] != null
           ? (json['servicesBreakdown'] as List)
-          .map((service) => InvoiceServiceBreakdown.fromJson(service))
-          .toList()
+              .map((service) => InvoiceServiceBreakdown.fromJson(service))
+              .toList()
           : [],
       user: InvoiceUserModel.fromJson(json['user'] ?? {}),
       provider: InvoiceProviderModel.fromJson(json['provider'] ?? {}),
       services: json['services'] != null
           ? (json['services'] as List)
-          .map((service) => InvoiceServiceModel.fromJson(service))
-          .toList()
+              .map((service) => InvoiceServiceModel.fromJson(service))
+              .toList()
           : [],
     );
   }
@@ -200,9 +224,10 @@ class InvoiceServiceBreakdown {
   final double commission;
   final double totalPrice;
   final String serviceImage;
-  final String serviceTitle;
+  final String serviceTitleAr; // ✅ تم التعديل
+  final String serviceTitleEn; // ✅ جديد
   final double commissionAmount;
-  final String serviceDescription;
+  final String? serviceDescription;
 
   InvoiceServiceBreakdown({
     required this.quantity,
@@ -211,10 +236,18 @@ class InvoiceServiceBreakdown {
     required this.commission,
     required this.totalPrice,
     required this.serviceImage,
-    required this.serviceTitle,
+    required this.serviceTitleAr,
+    required this.serviceTitleEn,
     required this.commissionAmount,
-    required this.serviceDescription,
+    this.serviceDescription,
   });
+
+  // ✅ دالة للحصول على العنوان حسب اللغة
+  String getTitle() {
+    final LanguageService _languageService = Get.find<LanguageService>();
+
+    return _languageService.isArabic ? serviceTitleAr : serviceTitleEn;
+  }
 
   factory InvoiceServiceBreakdown.fromJson(Map<String, dynamic> json) {
     return InvoiceServiceBreakdown(
@@ -224,9 +257,10 @@ class InvoiceServiceBreakdown {
       commission: (json['commission'] ?? 0).toDouble(),
       totalPrice: (json['totalPrice'] ?? 0).toDouble(),
       serviceImage: json['serviceImage'] ?? '',
-      serviceTitle: json['serviceTitle'] ?? '',
+      serviceTitleAr: json['serviceTitleAr'] ?? '', // ✅ تم التعديل
+      serviceTitleEn: json['serviceTitleEn'] ?? '', // ✅ جديد
       commissionAmount: (json['commissionAmount'] ?? 0).toDouble(),
-      serviceDescription: json['serviceDescription'] ?? '',
+      serviceDescription: json['serviceDescription'],
     );
   }
 
@@ -238,7 +272,8 @@ class InvoiceServiceBreakdown {
       'commission': commission,
       'totalPrice': totalPrice,
       'serviceImage': serviceImage,
-      'serviceTitle': serviceTitle,
+      'serviceTitleAr': serviceTitleAr, // ✅ تم التعديل
+      'serviceTitleEn': serviceTitleEn, // ✅ جديد
       'commissionAmount': commissionAmount,
       'serviceDescription': serviceDescription,
     };
@@ -252,9 +287,10 @@ class InvoiceServiceModel {
   final double commission;
   final double totalPrice;
   final String serviceImage;
-  final String serviceTitle;
+  final String serviceTitleAr; // ✅ تم التعديل
+  final String serviceTitleEn; // ✅ جديد
   final double commissionAmount;
-  final String serviceDescription;
+  final String? serviceDescription;
   final InvoiceCategoryModel? category;
 
   InvoiceServiceModel({
@@ -264,11 +300,18 @@ class InvoiceServiceModel {
     required this.commission,
     required this.totalPrice,
     required this.serviceImage,
-    required this.serviceTitle,
+    required this.serviceTitleAr,
+    required this.serviceTitleEn,
     required this.commissionAmount,
-    required this.serviceDescription,
+    this.serviceDescription,
     this.category,
   });
+
+  String getTitle() {
+    final LanguageService _languageService = Get.find<LanguageService>();
+
+    return _languageService.isArabic ? serviceTitleAr : serviceTitleEn;
+  }
 
   factory InvoiceServiceModel.fromJson(Map<String, dynamic> json) {
     return InvoiceServiceModel(
@@ -278,10 +321,13 @@ class InvoiceServiceModel {
       commission: (json['commission'] ?? 0).toDouble(),
       totalPrice: (json['totalPrice'] ?? 0).toDouble(),
       serviceImage: json['serviceImage'] ?? '',
-      serviceTitle: json['serviceTitle'] ?? '',
+      serviceTitleAr: json['serviceTitleAr'] ?? '', // ✅ تم التعديل
+      serviceTitleEn: json['serviceTitleEn'] ?? '', // ✅ جديد
       commissionAmount: (json['commissionAmount'] ?? 0).toDouble(),
-      serviceDescription: json['serviceDescription'] ?? '',
-      category: json['category'] != null ? InvoiceCategoryModel.fromJson(json['category']) : null,
+      serviceDescription: json['serviceDescription'],
+      category: json['category'] != null
+          ? InvoiceCategoryModel.fromJson(json['category'])
+          : null,
     );
   }
 
@@ -293,7 +339,8 @@ class InvoiceServiceModel {
       'commission': commission,
       'totalPrice': totalPrice,
       'serviceImage': serviceImage,
-      'serviceTitle': serviceTitle,
+      'serviceTitleAr': serviceTitleAr, // ✅ تم التعديل
+      'serviceTitleEn': serviceTitleEn, // ✅ جديد
       'commissionAmount': commissionAmount,
       'serviceDescription': serviceDescription,
       'category': category?.toJson(),

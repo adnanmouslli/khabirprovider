@@ -14,11 +14,12 @@ class ProfileService {
 
   // Base URL
   static const String _baseUrl = AppConfig.baseUrl;
+  static const String fileUrl = AppConfig.fileUrl;
 
   // Profile endpoints
   static const String _getProfile = '/providers/profile';
   static const String _updateProfile = '/providers';
-  static const String _uploadImage = '/providers/profile/image';
+  static const String _deleteAccount = '/auth/delete-account';
 
   // جلب بيانات البروفايل
   Future<Map<String, dynamic>> getProfile() async {
@@ -33,20 +34,10 @@ class ProfileService {
   // تحديث حالة المزود مع استخدام ID من التخزين
   Future<Map<String, dynamic>> updateProviderStatus(bool isActive) async {
     try {
-      // الحصول على ID المزود من بيانات المستخدم المحفوظة
-      final providerId = getProviderIdFromStorage();
-
-      // التحقق من وجود ID
-      if (providerId == null) {
-        throw Exception('لا يمكن العثور على معرف المزود في البيانات المحفوظة');
-      }
-
-      print('Updating provider status for ID: $providerId to $isActive');
-
       final response = await _dioService.put(
-        '${AppConfig.baseUrl}/providers/$providerId/status',
+        '${AppConfig.baseUrl}/providers/online-status',
         data: {
-          'isActive': isActive,
+          'onlineStatus': isActive,
         },
       );
 
@@ -78,7 +69,8 @@ class ProfileService {
   // تحديث البيانات المحلية المحفوظة
   void _updateLocalUserData(String key, dynamic value) {
     try {
-      final currentUserData = Map<String, dynamic>.from(_storageService.userData);
+      final currentUserData =
+          Map<String, dynamic>.from(_storageService.userData);
       currentUserData[key] = value;
       _storageService.userData = currentUserData;
       print('Local user data updated: $key = $value');
@@ -108,7 +100,6 @@ class ProfileService {
 
   Future<Map<String, dynamic>> updateProfile({
     String? name,
-    String? email,
     String? phone,
     String? address,
     String? state,
@@ -132,7 +123,6 @@ class ProfileService {
         return await _updateProfileWithImage(
           providerId: providerId,
           name: name,
-          email: email,
           phone: phone,
           address: address,
           state: state,
@@ -146,7 +136,6 @@ class ProfileService {
       final Map<String, dynamic> data = {};
 
       if (name != null) data['name'] = name;
-      if (email != null) data['email'] = email;
       if (phone != null) data['phone'] = phone;
       if (address != null) data['address'] = address;
       if (state != null) data['state'] = state;
@@ -172,11 +161,98 @@ class ProfileService {
     }
   }
 
+  // دالة حذف الحساب
+Future<Map<String, dynamic>> deleteAccount() async {
+  try {
+    final providerId = getProviderIdFromStorage();
+
+    if (providerId == null) {
+      throw Exception('لا يمكن العثور على معرف المزود');
+    }
+
+    print('Deleting account for provider ID: $providerId');
+
+    final response = await _dioService.delete(
+      '$_baseUrl$_deleteAccount',
+    );
+
+    print('Account deleted successfully');
+    print('Response: ${response.data}');
+    
+    return response.data;
+  } on dio.DioException catch (e) {
+    print('DioException status code: ${e.response?.statusCode}');
+    print('DioException response: ${e.response?.data}');
+    
+    // معالجة أخطاء HTTP حسب الـ status code
+    if (e.response != null) {
+      final statusCode = e.response!.statusCode;
+      final responseData = e.response!.data;
+      
+      switch (statusCode) {
+        case 400: // Bad Request - فواتير غير مدفوعة أو طلبات معلقة
+          final message = responseData['message'] ?? 'خطأ في البيانات';
+          throw AccountDeletionException(
+            message: message,
+            statusCode: statusCode,
+            type: AccountDeletionErrorType.unpaidInvoices,
+          );
+          
+        case 401: // Unauthorized
+          throw AccountDeletionException(
+            message: 'انتهت جلستك. يرجى تسجيل الدخول مرة أخرى',
+            statusCode: statusCode,
+            type: AccountDeletionErrorType.unauthorized,
+          );
+          
+        case 403: // Forbidden
+          throw AccountDeletionException(
+            message: 'ليس لديك صلاحية لحذف هذا الحساب',
+            statusCode: statusCode,
+            type: AccountDeletionErrorType.forbidden,
+          );
+          
+        case 404: // Not Found
+          throw AccountDeletionException(
+            message: 'الحساب غير موجود',
+            statusCode: statusCode,
+            type: AccountDeletionErrorType.notFound,
+          );
+          
+        case 500: // Internal Server Error
+          throw AccountDeletionException(
+            message: 'حدث خطأ في السيرفر. يرجى المحاولة لاحقاً',
+            statusCode: statusCode,
+            type: AccountDeletionErrorType.serverError,
+          );
+          
+        default:
+          throw AccountDeletionException(
+            message: responseData['message'] ?? 'حدث خطأ غير متوقع',
+            statusCode: statusCode,
+            type: AccountDeletionErrorType.unknown,
+          );
+      }
+    }
+    
+    throw Exception(_handleDioError(e));
+  } catch (e) {
+    print('Unexpected error: $e');
+    
+    // إذا كان الخطأ من نوع AccountDeletionException، نعيد رميه
+    if (e is AccountDeletionException) {
+      rethrow;
+    }
+    
+    throw Exception('فشل في حذف الحساب: $e');
+  }
+}
+
+
   // دالة منفصلة لتحديث البروفايل مع الصورة - تم تحسينها
   Future<Map<String, dynamic>> _updateProfileWithImage({
     required String providerId,
     String? name,
-    String? email,
     String? phone,
     String? address,
     String? state,
@@ -219,9 +295,6 @@ class ProfileService {
       if (name != null && name.isNotEmpty) {
         formData.fields.add(MapEntry('name', name));
       }
-      if (email != null && email.isNotEmpty) {
-        formData.fields.add(MapEntry('email', email));
-      }
       if (phone != null && phone.isNotEmpty) {
         formData.fields.add(MapEntry('phone', phone));
       }
@@ -261,7 +334,6 @@ class ProfileService {
         await _handleSuccessfulImageUpdate(
           response.data,
           name: name,
-          email: email,
           phone: phone,
           address: address,
           state: state,
@@ -285,26 +357,80 @@ class ProfileService {
     }
   }
 
+  // طلب تغيير رقم الهاتف (إرسال OTP)
+  Future<Map<String, dynamic>> requestPhoneChange(String newPhoneNumber) async {
+    try {
+      final response = await _dioService.post(
+        '$_baseUrl/providers/change-phone/request',
+        data: {
+          'newPhoneNumber': newPhoneNumber,
+        },
+      );
+
+      print('Phone change request sent successfully');
+      return response.data;
+    } on dio.DioException catch (e) {
+      print('Error requesting phone change: ${e.response?.data}');
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      print('Unexpected error: $e');
+      throw Exception('فشل في إرسال طلب تغيير الرقم: $e');
+    }
+  }
+
+// تأكيد تغيير رقم الهاتف (التحقق من OTP)
+  Future<Map<String, dynamic>> verifyPhoneChange({
+    required String newPhoneNumber,
+    required String otp,
+  }) async {
+    try {
+      final response = await _dioService.post(
+        '$_baseUrl/providers/change-phone/verify',
+        data: {
+          'newPhoneNumber': newPhoneNumber,
+          'otp': otp,
+        },
+      );
+
+      print('Phone change verified successfully');
+
+      // تحديث رقم الهاتف في التخزين المحلي
+      if (response.statusCode == 200) {
+        _updateLocalUserData('phone', newPhoneNumber);
+      }
+
+      return response.data;
+    } on dio.DioException catch (e) {
+      print('Error verifying phone change: ${e.response?.data}');
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      print('Unexpected error: $e');
+      throw Exception('فشل في التحقق من الرمز: $e');
+    }
+  }
+
   // معالجة الاستجابة الناجحة لتحديث الصورة
   Future<void> _handleSuccessfulImageUpdate(
-      Map<String, dynamic> responseData, {
-        String? name,
-        String? email,
-        String? phone,
-        String? address,
-        String? state,
-        String? city,
-        String? description,
-      }) async {
+    Map<String, dynamic> responseData, {
+    String? name,
+    String? phone,
+    String? address,
+    String? state,
+    String? city,
+    String? description,
+  }) async {
     try {
       // تحديث البيانات النصية
       if (name != null && name.isNotEmpty) _updateLocalUserData('name', name);
-      if (email != null && email.isNotEmpty) _updateLocalUserData('email', email);
-      if (phone != null && phone.isNotEmpty) _updateLocalUserData('phone', phone);
-      if (address != null && address.isNotEmpty) _updateLocalUserData('address', address);
-      if (state != null && state.isNotEmpty) _updateLocalUserData('state', state);
+      if (phone != null && phone.isNotEmpty)
+        _updateLocalUserData('phone', phone);
+      if (address != null && address.isNotEmpty)
+        _updateLocalUserData('address', address);
+      if (state != null && state.isNotEmpty)
+        _updateLocalUserData('state', state);
       if (city != null && city.isNotEmpty) _updateLocalUserData('city', city);
-      if (description != null && description.isNotEmpty) _updateLocalUserData('description', description);
+      if (description != null && description.isNotEmpty)
+        _updateLocalUserData('description', description);
 
       // تحديث رابط الصورة
       String? imageUrl;
@@ -318,7 +444,9 @@ class ProfileService {
       }
 
       // إذا لم نجد الصورة في data، ابحث في الجذر
-      imageUrl ??= responseData['image'] ?? responseData['image_url'] ?? responseData['url'];
+      imageUrl ??= responseData['image'] ??
+          responseData['image_url'] ??
+          responseData['url'];
 
       if (imageUrl != null && imageUrl.isNotEmpty) {
         // التأكد من أن الرابط صحيح
@@ -330,7 +458,6 @@ class ProfileService {
       } else {
         print('Warning: No image URL found in response');
       }
-
     } catch (e) {
       print('Error handling successful image update: $e');
     }
@@ -343,7 +470,8 @@ class ProfileService {
         final providerData = profileData['provider'] as Map<String, dynamic>;
 
         // دمج البيانات الحالية مع البيانات الجديدة
-        final currentUserData = Map<String, dynamic>.from(_storageService.userData);
+        final currentUserData =
+            Map<String, dynamic>.from(_storageService.userData);
         currentUserData.addAll(providerData);
 
         _storageService.userData = currentUserData;
@@ -351,6 +479,45 @@ class ProfileService {
       }
     } catch (e) {
       print('Error saving profile to storage: $e');
+    }
+  }
+
+  Future<Map<String, String?>> getTermsAndConditions() async {
+    try {
+      final response = await _dioService
+          .get('$_baseUrl/admin/settings/terms-and-conditions');
+
+      final responseData = response.data;
+
+      if (responseData is Map<String, dynamic>) {
+        // تكوين الروابط الكاملة بإضافة baseUrl
+        String? termsEn = responseData['terms_en'] as String?;
+        String? termsAr = responseData['terms_ar'] as String?;
+
+        String? privacy_en = responseData['privacy_en'] as String?;
+
+        String? privacy_ar = responseData['privacy_ar'] as String?;
+
+        return {
+          'terms_en': termsEn != null ? '$fileUrl$termsEn' : null,
+          'terms_ar': termsAr != null ? '$fileUrl$termsAr' : null,
+          'privacy_en': privacy_en != null ? '$fileUrl$privacy_en' : null,
+          'privacy_ar': privacy_ar != null ? '$fileUrl$privacy_ar' : null,
+        };
+      }
+
+      // في حالة كانت البيانات بشكل مختلف
+      return {
+        'terms_en': null,
+        'terms_ar': null,
+      };
+    } catch (e) {
+      print('Error fetching terms and conditions: $e');
+      // إرجاع قيم فارغة في حالة الخطأ
+      return {
+        'terms_en': null,
+        'terms_ar': null,
+      };
     }
   }
 
@@ -410,4 +577,31 @@ class ProfileService {
     }
     return error.toString();
   }
+}
+
+
+// في ملف جديد: lib/models/account_deletion_exception.dart
+enum AccountDeletionErrorType {
+  unpaidInvoices,
+  pendingOrders,
+  unauthorized,
+  forbidden,
+  notFound,
+  serverError,
+  unknown,
+}
+
+class AccountDeletionException implements Exception {
+  final String message;
+  final int? statusCode;
+  final AccountDeletionErrorType type;
+
+  AccountDeletionException({
+    required this.message,
+    this.statusCode,
+    required this.type,
+  });
+
+  @override
+  String toString() => message;
 }

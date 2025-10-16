@@ -42,7 +42,8 @@ class ServicesView extends GetView<ServicesController> {
                           child: ListView.builder(
                             itemCount: controller.providerServices.length,
                             itemBuilder: (context, index) {
-                              final service = controller.providerServices[index];
+                              final service =
+                                  controller.providerServices[index];
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 16),
                                 child: _buildServiceCard(service),
@@ -119,62 +120,64 @@ class ServicesView extends GetView<ServicesController> {
 
               // Add Service button with loading state
               Obx(() => GestureDetector(
-                onTap: (controller.isLoading.value || controller.isAddingServices.value)
-                    ? null
-                    : () => controller.navigateToAddService(),
-                child: Container(
-                  height: 40,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: (controller.isLoading.value || controller.isAddingServices.value)
-                        ? Colors.grey[400]
-                        : const Color(0xFFEF4444),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (controller.isAddingServices.value)
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      else
-                        const Icon(
-                          Icons.add,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'add'.tr,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    onTap: (controller.isLoading.value ||
+                            controller.isAddingServices.value)
+                        ? null
+                        : () => controller.navigateToAddService(),
+                    child: Container(
+                      height: 40,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: (controller.isLoading.value ||
+                                controller.isAddingServices.value)
+                            ? Colors.grey[400]
+                            : const Color(0xFFEF4444),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ],
-                  ),
-                ),
-              )),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (controller.isAddingServices.value)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          else
+                            const Icon(
+                              Icons.add,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'add'.tr,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )),
 
               const SizedBox(width: 16),
 
               // Services title with count
               Obx(() => Text(
-                "${'services_count'.tr} ${controller.providerServices.length.toString()} "
-                    ,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              )),
+                    "${'services_count'.tr} ${controller.providerServices.length.toString()} ",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  )),
             ],
           ),
 
@@ -337,7 +340,8 @@ class ServicesView extends GetView<ServicesController> {
                       children: [
                         // Service name
                         Text(
-                          serviceModel?.title ?? 'undefined_service'.tr,
+                          serviceModel?.getTitle(controller.isArabic) ??
+                              'undefined_service'.tr,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -347,22 +351,29 @@ class ServicesView extends GetView<ServicesController> {
 
                         const SizedBox(height: 8),
 
-                        // Service description
-                        Text(
-                          serviceModel?.description ?? '',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w400,
+                        // Service description - استخدام الوصف حسب اللغة
+                        if (serviceModel?.getDescription(controller.isArabic) !=
+                                null &&
+                            serviceModel!
+                                .getDescription(controller.isArabic)!
+                                .isNotEmpty)
+                          Text(
+                            serviceModel.getDescription(controller.isArabic)!,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
 
                         const SizedBox(height: 8),
 
                         // Commission info
                         if (serviceModel?.commission != null)
                           Text(
-                            "${'commission_info'.tr}${serviceModel!.commission.toString()} ${'omr'.tr}" ,
+                            "${'commission_info'.tr}${serviceModel!.commission.toString()} ${'omr'.tr}",
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[500],
@@ -397,7 +408,8 @@ class ServicesView extends GetView<ServicesController> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: isActive ? Colors.black87 : Colors.grey[600],
+                              color:
+                                  isActive ? Colors.black87 : Colors.grey[600],
                             ),
                           ),
                         ],
@@ -433,7 +445,9 @@ class ServicesView extends GetView<ServicesController> {
         children: [
           // Toggle status button
           GestureDetector(
-            onTap: isAnyLoading ? null : () => controller.toggleServiceStatus(serviceId),
+            onTap: isAnyLoading
+                ? null
+                : () => controller.toggleServiceStatus(serviceId),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -472,7 +486,9 @@ class ServicesView extends GetView<ServicesController> {
 
           // Edit price button
           GestureDetector(
-            onTap: isAnyLoading ? null : () => controller.editServicePrice(service),
+            onTap: isAnyLoading
+                ? null
+                : () => controller.editServicePrice(service),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -509,11 +525,13 @@ class ServicesView extends GetView<ServicesController> {
 
           // Delete button
           GestureDetector(
-            onTap: isAnyLoading ? null : () => controller.deleteService(serviceId),
+            onTap:
+                isAnyLoading ? null : () => controller.deleteService(serviceId),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: isAnyLoading ? Colors.grey[400] : const Color(0xFFEF4444),
+                color:
+                    isAnyLoading ? Colors.grey[400] : const Color(0xFFEF4444),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -583,41 +601,44 @@ class ServicesView extends GetView<ServicesController> {
           ),
           const SizedBox(height: 24),
           Obx(() => GestureDetector(
-            onTap: controller.isLoading.value ? null : () => controller.navigateToAddService(),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                color: controller.isLoading.value
-                    ? Colors.grey[400]
-                    : const Color(0xFFEF4444),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (controller.isLoading.value)
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  else
-                  Text(
-                    'add'.tr,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                onTap: controller.isLoading.value
+                    ? null
+                    : () => controller.navigateToAddService(),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: controller.isLoading.value
+                        ? Colors.grey[400]
+                        : const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-
-                ],
-              ),
-            ),
-          )),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (controller.isLoading.value)
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      else
+                        Text(
+                          'add'.tr,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              )),
         ],
       ),
     );
@@ -644,7 +665,6 @@ class ServicesView extends GetView<ServicesController> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-
           ],
         ),
       ),

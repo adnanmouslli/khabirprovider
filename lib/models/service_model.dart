@@ -1,31 +1,49 @@
 class ServiceModel {
   final int id;
   final String? image;
-  final String title;
-  final String description;
+  final String titleAr;
+  final String titleEn;
+    final String? descriptionAr;  // إضافة الوصف العربي
+  final String? descriptionEn;  // إضافة الوصف الإنجليزي
+
   final double commission;
   final String? whatsapp;
   final int categoryId;
+  final String? serviceType;
+  final CategoryModel? category; // إضافة هذا الحقل
 
   ServiceModel({
     required this.id,
     this.image,
-    required this.title,
-    required this.description,
+    required this.titleAr,
+    required this.titleEn,
+    this.descriptionAr,
+    this.descriptionEn,
     required this.commission,
     this.whatsapp,
     required this.categoryId,
+    this.serviceType,
+    this.category, // إضافة هذا
   });
+
+  String getTitle(bool isArabic) => isArabic ? titleAr : titleEn;
+  String? getDescription(bool isArabic) => isArabic ? descriptionAr : descriptionEn;
 
   factory ServiceModel.fromJson(Map<String, dynamic> json) {
     return ServiceModel(
       id: json['id'] ?? 0,
       image: json['image'],
-      title: json['title'] ?? '',
-      description: json['description'] ?? '',
+      titleAr: json['titleAr'] ?? '',
+      titleEn: json['titleEn'] ?? '',
+      descriptionAr: json['descriptionAr'],  // إضافة
+      descriptionEn: json['descriptionEn'],  // إضافة
       commission: (json['commission'] ?? 0).toDouble(),
       whatsapp: json['whatsapp'],
       categoryId: json['categoryId'] ?? 0,
+      serviceType: json['serviceType'],
+      category: json['category'] != null 
+          ? CategoryModel.fromJson(json['category']) 
+          : null, // إضافة هذا
     );
   }
 
@@ -33,15 +51,18 @@ class ServiceModel {
     return {
       'id': id,
       'image': image,
-      'title': title,
-      'description': description,
+      'titleAr': titleAr,
+      'titleEn': titleEn,
+      'descriptionAr': descriptionAr,  // إضافة
+      'descriptionEn': descriptionEn,  // إضافة
       'commission': commission,
       'whatsapp': whatsapp,
       'categoryId': categoryId,
+      'serviceType': serviceType,
+      'category': category?.toJson(), // إضافة هذا
     };
   }
 }
-
 class CategoryModel {
   final int id;
   final String? image;
@@ -78,6 +99,58 @@ class CategoryModel {
   }
 }
 
+class ActiveOfferModel {
+  final int id;
+  final String startDate;
+  final String endDate;
+  final String? description;
+  final double offerPrice;
+  final double originalPrice;
+
+  ActiveOfferModel({
+    required this.id,
+    required this.startDate,
+    required this.endDate,
+    this.description,
+    required this.offerPrice,
+    required this.originalPrice,
+  });
+
+  factory ActiveOfferModel.fromJson(Map<String, dynamic> json) {
+    return ActiveOfferModel(
+      id: json['id'] ?? 0,
+      startDate: json['startDate'] ?? '',
+      endDate: json['endDate'] ?? '',
+      description: json['description'],
+      offerPrice: (json['offerPrice'] ?? 0).toDouble(),
+      originalPrice: (json['originalPrice'] ?? 0).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'startDate': startDate,
+      'endDate': endDate,
+      'description': description,
+      'offerPrice': offerPrice,
+      'originalPrice': originalPrice,
+    };
+  }
+
+  // للتحقق من صحة العرض حسب التاريخ
+  bool get isValid {
+    try {
+      final now = DateTime.now();
+      final start = DateTime.parse(startDate);
+      final end = DateTime.parse(endDate);
+      return now.isAfter(start) && now.isBefore(end);
+    } catch (e) {
+      return false;
+    }
+  }
+}
+
 class ProviderServiceModel {
   final int id;
   final int providerId;
@@ -86,6 +159,7 @@ class ProviderServiceModel {
   final bool isActive;
   final ProviderModel? provider;
   final ServiceModel? service;
+  final ActiveOfferModel? activeOffer;
 
   ProviderServiceModel({
     required this.id,
@@ -95,6 +169,7 @@ class ProviderServiceModel {
     required this.isActive,
     this.provider,
     this.service,
+    this.activeOffer,
   });
 
   factory ProviderServiceModel.fromJson(Map<String, dynamic> json) {
@@ -110,6 +185,9 @@ class ProviderServiceModel {
       service: json['service'] != null
           ? ServiceModel.fromJson(json['service'])
           : null,
+      activeOffer: json['activeOffer'] != null
+          ? ActiveOfferModel.fromJson(json['activeOffer'])
+          : null,
     );
   }
 
@@ -122,7 +200,21 @@ class ProviderServiceModel {
       'isActive': isActive,
       'provider': provider?.toJson(),
       'service': service?.toJson(),
+      'activeOffer': activeOffer?.toJson(),
     };
+  }
+
+  // للحصول على السعر الفعال (سعر العرض أو السعر العادي)
+  double get effectivePrice {
+    if (activeOffer != null && activeOffer!.isValid) {
+      return activeOffer!.offerPrice;
+    }
+    return price;
+  }
+
+  // للتحقق من وجود عرض فعال
+  bool get hasActiveOffer {
+    return activeOffer != null && activeOffer!.isValid;
   }
 }
 
@@ -212,6 +304,38 @@ class AddMultipleServicesResponse {
           ?.map((item) => ProviderServiceModel.fromJson(item))
           .toList() ??
           [],
+    );
+  }
+}
+
+// إضافة نموذج للاستجابة الجديدة من /services
+class ServicesWithCategoriesResponse {
+  final List<ServiceModel> services;
+  final List<CategoryModel> categories;
+
+  ServicesWithCategoriesResponse({
+    required this.services,
+    required this.categories,
+  });
+
+  factory ServicesWithCategoriesResponse.fromJson(List<dynamic> servicesJson) {
+    // تحويل الخدمات
+    final services = servicesJson
+        .map((item) => ServiceModel.fromJson(item))
+        .toList();
+
+    // استخراج الفئات من الخدمات (إزالة المكررات)
+    final categoriesMap = <int, CategoryModel>{};
+    for (var service in services) {
+      if (service.category != null) {
+        categoriesMap[service.category!.id] = service.category!;
+      }
+    }
+    final categories = categoriesMap.values.toList();
+
+    return ServicesWithCategoriesResponse(
+      services: services,
+      categories: categories,
     );
   }
 }

@@ -33,17 +33,21 @@ class AddServiceView extends GetView<AddServiceController> {
                     Expanded(
                       child: Obx(() {
                         if (controller.isLoading.value) {
-                          return const Center(child: CircularProgressIndicator());
+                          return const Center(
+                              child: CircularProgressIndicator());
                         }
 
-                        if (controller.filteredServices.isEmpty) { // استخدام filteredServices للتحقق
+                        if (controller.filteredServices.isEmpty) {
+                          // استخدام filteredServices للتحقق
                           return _buildEmptyState();
                         }
 
                         return ListView.builder(
-                          itemCount: controller.filteredServices.length, // استخدام filteredServices بدلاً من availableServices
+                          itemCount: controller.filteredServices
+                              .length, // استخدام filteredServices بدلاً من availableServices
                           itemBuilder: (context, index) {
-                            final service = controller.filteredServices[index]; // استخدام filteredServices
+                            final service = controller.filteredServices[
+                                index]; // استخدام filteredServices
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12),
                               child: _buildServiceItem(service, index),
@@ -197,57 +201,58 @@ class AddServiceView extends GetView<AddServiceController> {
 
   Widget _buildServiceCategoryDropdown() {
     return Obx(() => GestureDetector(
-      onTap: _showCategorySelector,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[300]!),
-        ),
-        child: Row(
-          children: [
-            // Checkbox icon
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Icon(
-                Icons.check,
-                color: Colors.white,
-                size: 16,
-              ),
+          onTap: _showCategorySelector,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!),
             ),
-
-            const SizedBox(width: 16),
-
-            // Service Category text
-            Expanded(
-              child: Text(
-                controller.selectedCategoryId.value == null
-                    ? 'service_category'.tr
-                    : controller.getCategoryName(controller.selectedCategoryId.value!),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
+            child: Row(
+              children: [
+                // Checkbox icon
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(
+                    Icons.check,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
-              ),
-            ),
 
-            // Dropdown arrow
-            const Icon(
-              Icons.keyboard_arrow_down,
-              color: Colors.black54,
-              size: 24,
+                const SizedBox(width: 16),
+
+                // Service Category text
+                Expanded(
+                  child: Text(
+                    controller.selectedCategoryId.value == null
+                        ? 'service_category'.tr
+                        : controller.getCategoryName(
+                            controller.selectedCategoryId.value!),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+
+                // Dropdown arrow
+                const Icon(
+                  Icons.keyboard_arrow_down,
+                  color: Colors.black54,
+                  size: 24,
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-    ));
+          ),
+        ));
   }
 
   void _showCategorySelector() {
@@ -309,22 +314,26 @@ class AddServiceView extends GetView<AddServiceController> {
                       },
                     ),
 
-                    // Individual categories
+                    // Individual categories - مع اختيار اللغة المناسبة
                     ...controller.categories.map((category) => ListTile(
-                      leading: Radio<int?>(
-                        value: category.id,
-                        groupValue: controller.selectedCategoryId.value,
-                        onChanged: (value) {
-                          controller.selectCategory(value);
-                          Get.back();
-                        },
-                      ),
-                      title: Text(category.titleAr),
-                      onTap: () {
-                        controller.selectCategory(category.id);
-                        Get.back();
-                      },
-                    )),
+                          leading: Radio<int?>(
+                            value: category.id,
+                            groupValue: controller.selectedCategoryId.value,
+                            onChanged: (value) {
+                              controller.selectCategory(value);
+                              Get.back();
+                            },
+                          ),
+                          title: Text(
+                            controller.isArabic
+                                ? category.titleAr
+                                : category.titleEn,
+                          ),
+                          onTap: () {
+                            controller.selectCategory(category.id);
+                            Get.back();
+                          },
+                        )),
                   ],
                 ),
               ),
@@ -350,131 +359,158 @@ class AddServiceView extends GetView<AddServiceController> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey[200]!),
         ),
-        child: Row(
+        child: Column(
           children: [
-            // Checkbox
-            GestureDetector(
-              onTap: () => controller.toggleService(index),
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? Colors.black87
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: isSelected
-                        ? Colors.black87
-                        : Colors.grey[400]!,
-                    width: 2,
-                  ),
-                ),
-                child: isSelected
-                    ? const Icon(
-                  Icons.check,
-                  color: Colors.white,
-                  size: 16,
-                )
-                    : null,
-              ),
-            ),
-
-            const SizedBox(width: 16),
-
-            // Service name
-            Expanded(
-              child: Text(
-                service.title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-
-            // Commission
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            Row(
               children: [
-                Text(
-                  'commission'.tr,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${service.commission} ${"omr".tr}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.green,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(width: 16),
-
-            // Price input
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  'price_label'.tr,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 32,
-                      child: TextFormField(
-                        controller: priceController,
-                        textAlign: TextAlign.center,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            borderSide: BorderSide(color: Colors.grey[300]!),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            borderSide: BorderSide(color: Colors.grey[300]!),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            borderSide: const BorderSide(color: Color(0xFFEF4444)),
-                          ),
-                        ),
+                // Checkbox
+                GestureDetector(
+                  onTap: () => controller.toggleService(index),
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.black87 : Colors.transparent,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: isSelected ? Colors.black87 : Colors.grey[400]!,
+                        width: 2,
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    child: isSelected
+                        ? const Icon(
+                            Icons.check,
+                            color: Colors.white,
+                            size: 16,
+                          )
+                        : null,
+                  ),
+                ),
+
+                const SizedBox(width: 16),
+
+                // Service name and description
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        service.getTitle(controller.isArabic),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      // إضافة الوصف
+                      if (service.getDescription(controller.isArabic) != null &&
+                          service
+                              .getDescription(controller.isArabic)!
+                              .isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          service.getDescription(controller.isArabic)!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w400,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                // Commission
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
                     Text(
-                      'omr'.tr,
+                      'commission'.tr,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${service.commission} ${"omr".tr}',
                       style: const TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green,
                       ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(width: 16),
+
+                // Price input
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'price_label'.tr,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 50,
+                          height: 32,
+                          child: TextFormField(
+                            controller: priceController,
+                            textAlign: TextAlign.center,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(6),
+                                borderSide:
+                                    BorderSide(color: Colors.grey[300]!),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(6),
+                                borderSide:
+                                    BorderSide(color: Colors.grey[300]!),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(6),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFEF4444)),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'omr'.tr,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -505,23 +541,23 @@ class AddServiceView extends GetView<AddServiceController> {
           child: Center(
             child: isAdding
                 ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2,
-              ),
-            )
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
                 : Text(
-              'ok'.tr,
-              style: TextStyle(
-                color: hasSelected && !isAdding
-                    ? Colors.white
-                    : Colors.grey[600],
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+                    'ok'.tr,
+                    style: TextStyle(
+                      color: hasSelected && !isAdding
+                          ? Colors.white
+                          : Colors.grey[600],
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
           ),
         ),
       );

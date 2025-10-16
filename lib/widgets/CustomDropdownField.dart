@@ -35,6 +35,7 @@ class CustomDropdownField extends StatelessWidget {
       child: DropdownButtonFormField<String>(
         value: selectedValue,
         onChanged: enabled ? onChanged : null,
+        isExpanded: true, // هذا يحل مشكلة الـ overflow
         style: TextStyle(
           fontSize: 16,
           color: enabled ? const Color(0xFF111827) : const Color(0xFF9CA3AF),
@@ -64,9 +65,11 @@ class CustomDropdownField extends StatelessWidget {
           focusedBorder: InputBorder.none,
           errorBorder: InputBorder.none,
           focusedErrorBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
+          contentPadding: EdgeInsets.only(
+            left: prefixIcon != null ? 0 : 16, // تقليل المساحة الجانبية
+            right: 0, // إزالة المساحة اليمنى للسماح لـ icon بالظهور
+            top: 16,
+            bottom: 16,
           ),
         ),
         icon: Container(
@@ -81,15 +84,21 @@ class CustomDropdownField extends StatelessWidget {
         ),
         dropdownColor: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        menuMaxHeight: 200, // تحديد أقصى ارتفاع للقائمة المنسدلة
         items: items.map((String item) {
           return DropdownMenuItem<String>(
             value: item,
-            child: Text(
-              item,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Color(0xFF111827),
-                fontWeight: FontWeight.w400,
+            child: Container(
+              width: double.infinity,
+              child: Text(
+                item,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Color(0xFF111827),
+                  fontWeight: FontWeight.w400,
+                ),
+                overflow: TextOverflow.ellipsis, // قطع النص الطويل
+                maxLines: 1, // سطر واحد فقط
               ),
             ),
           );

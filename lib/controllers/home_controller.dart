@@ -1,24 +1,32 @@
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import 'package:khabir/utils/app_config.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../services/provider_ratings_service.dart';
 import '../routes/app_routes.dart';
+import '../widgets/WelcomeDialog.dart'; // إضافة import للواجهة الترحيبية
 
 class HomeController extends GetxController {
   final ApiService _apiService = Get.find<ApiService>();
   final StorageService _storageService = Get.find<StorageService>();
   final ProviderRatingsService _ratingsService = ProviderRatingsService();
 
+  // مفتاح التخزين لمعرفة ما إذا تم عرض واجهة الترحيب من قبل
+  static const String _welcomeShownKey = 'welcome_dialog_shown';
+
   // Observable variables
   var isLoading = false.obs;
   var isLoadingRating = false.obs;
-  var servicesCount = 6.obs;
-  var requestsCount = 12.obs;
+  var servicesCount = 0.obs;
   var customerRating = 5.0.obs;
   var totalIncome = 0.0.obs;
   var offersCount = 0.obs;
+
+  var notificationsCount = 0.obs;
+
+  var supportPhone = "".obs;
 
   // User data
   var userName = ''.obs;
@@ -32,8 +40,27 @@ class HomeController extends GetxController {
     // تأخير تحميل التقييم قليلاً للتأكد من تحميل بيانات المستخدم أولاً
     Future.delayed(const Duration(milliseconds: 100), () {
       _loadProviderRating();
+      _loadPendingOrdersCount();
     });
-    // _loadDashboardData();
+
+    // عرض واجهة الترحيب إذا لم يتم عرضها من قبل
+    _checkAndShowWelcomeDialog();
+  }
+
+  // التحقق من عرض واجهة الترحيب
+  void _checkAndShowWelcomeDialog() {
+    // تأخير قصير للتأكد من تحميل الواجهة بالكامل
+    Future.delayed(const Duration(milliseconds: 500), () {
+      final hasShownWelcome = _storageService.read(_welcomeShownKey) ?? false;
+
+      if (!hasShownWelcome) {
+        // عرض واجهة الترحيب
+        WelcomeDialog.show();
+
+        // حفظ أن واجهة الترحيب تم عرضها
+        _storageService.write(_welcomeShownKey, true);
+      }
+    });
   }
 
   // Load user data from storage
@@ -58,7 +85,8 @@ class HomeController extends GetxController {
         userName.value = userData['name']?.toString() ?? '';
         userType.value = userData['user_type']?.toString() ?? '';
 
-        print('Processed - ID: ${id.value}, Name: ${userName.value}, Type: ${userType.value}');
+        print(
+            'Processed - ID: ${id.value}, Name: ${userName.value}, Type: ${userType.value}');
       }
     } catch (e) {
       print('Error loading user data: $e');
@@ -86,7 +114,6 @@ class HomeController extends GetxController {
       final rating = await _ratingsService.getProviderAverageRating(providerId);
       customerRating.value = rating;
       print('Loaded rating: $rating');
-
     } catch (e) {
       print('Error loading provider rating: $e');
       // Keep default value if API fails
@@ -96,41 +123,45 @@ class HomeController extends GetxController {
     }
   }
 
-  // Load dashboard data from API
-  Future<void> _loadDashboardData() async {
+  // Load pending orders count (notifications)
+  Future<void> _loadPendingOrdersCount() async {
+    if (id.value.isEmpty) {
+      print('Provider ID is empty, skipping pending orders load');
+      return;
+    }
+
     try {
-      isLoading.value = true;
+      final providerId = id.value;
+      final response =
+          await _ratingsService.getNotificationCount(int.parse(providerId));
 
-      final response = await _apiService.get('dashboard');
+      print('Full API Response: $response');
 
-      if (response.body['success'] == true) {
-        final data = response.body['data'];
+      if (response != null) {
+        notificationsCount.value = response['pendingOrdersCount'] ?? 0;
+        servicesCount.value = response['servicesCount'] ?? 0;
+        supportPhone.value = response['support']?.toString() ?? "";
 
-        servicesCount.value = data['services_count'] ?? 6;
-        requestsCount.value = data['requests_count'] ?? 12;
-        totalIncome.value = (data['total_income'] ?? 0.0).toDouble();
-        offersCount.value = data['offers_count'] ?? 0;
+        print('Updated notificationsCount: ${notificationsCount.value}');
+        print('Updated servicesCount: ${servicesCount.value}');
+        print('Updated supportPhone: ${supportPhone.value}');
+      } else {
+        print('Response is null');
+        notificationsCount.value = 0;
+        servicesCount.value = 0;
       }
     } catch (e) {
-      print('Error loading dashboard data: $e');
-      // Use default values if API fails
-      _setDefaultValues();
-    } finally {
-      isLoading.value = false;
+      print('Error loading pending orders count: $e');
+      notificationsCount.value = 0;
+      servicesCount.value = 0;
     }
-  }
-
-  // Set default values
-  void _setDefaultValues() {
-    servicesCount.value = 6;
-    requestsCount.value = 12;
-    totalIncome.value = 0.0;
-    offersCount.value = 0;
   }
 
   // Navigation methods
   void navigateToServices() {
-    Get.toNamed(AppRoutes.SERVICES);
+    Get.toNamed(AppRoutes.SERVICES, arguments: {
+      'supportPhone': supportPhone.value,
+    });
   }
 
   void navigateToRequests() {
@@ -138,7 +169,9 @@ class HomeController extends GetxController {
   }
 
   void navigateToIncome() {
-    Get.toNamed(AppRoutes.INCOME);
+    Get.toNamed(AppRoutes.INCOME, arguments: {
+      'supportPhone': supportPhone.value,
+    });
   }
 
   void navigateToOffers() {
@@ -146,11 +179,9 @@ class HomeController extends GetxController {
   }
 
   void navigateToReviews() {
-    // Get.toNamed('/reviews');
-    // Temporary snackbar for demonstration
     Get.snackbar(
-      'التقييمات',
-      'متوسط التقييم: ${customerRating.value}/5.0',
+      'reviews'.tr,
+      '${'average_rating'.tr}: ${customerRating.value}/5.0',
       backgroundColor: Colors.amber,
       colorText: Colors.white,
       snackPosition: SnackPosition.BOTTOM,
@@ -170,36 +201,19 @@ class HomeController extends GetxController {
   // WhatsApp handler
   Future<void> handleWhatsAppTap() async {
     try {
-      const String supportNumber = '+963999999999';
-      final String message = Uri.encodeComponent(
-          'مرحباً، أحتاج للمساعدة في تطبيق خبير'
-      );
+      final String supportNumber = supportPhone.value;
+      final String message = Uri.encodeComponent('whatsapp_help_message'.tr);
 
       final String whatsappUrl = 'https://wa.me/$supportNumber?text=$message';
 
-      // Try to launch WhatsApp
-      if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
-        await launchUrl(
-          Uri.parse(whatsappUrl),
-          mode: LaunchMode.externalApplication,
-        );
-
-      } else {
-        // Fallback if WhatsApp is not installed
-        Get.snackbar(
-          'خطأ',
-          'لا يمكن فتح واتساب. تأكد من وجود التطبيق على جهازك',
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 4),
-          icon: const Icon(Icons.error, color: Colors.white),
-        );
-      }
+      await launchUrl(
+        Uri.parse(whatsappUrl),
+        mode: LaunchMode.externalApplication,
+      );
     } catch (e) {
       Get.snackbar(
-        'خطأ',
-        'حدث خطأ أثناء محاولة فتح واتساب',
+        'error'.tr,
+        'whatsapp_error_message'.tr,
         backgroundColor: Colors.red,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
@@ -211,8 +225,8 @@ class HomeController extends GetxController {
   // Logo tap handler
   void handleLogoTap() {
     Get.snackbar(
-      'مرحباً',
-      'مرحباً بك في تطبيق خبير',
+      'hello'.tr,
+      'welcome_to_khabir_app'.tr,
       backgroundColor: Colors.red,
       colorText: Colors.white,
       snackPosition: SnackPosition.TOP,
@@ -222,13 +236,12 @@ class HomeController extends GetxController {
   // Refresh dashboard data
   Future<void> refreshDashboard() async {
     await Future.wait([
-      _loadDashboardData(),
       _loadProviderRating(),
     ]);
 
     Get.snackbar(
-      'تم التحديث',
-      'تم تحديث البيانات بنجاح',
+      'updated'.tr,
+      'data_updated_successfully'.tr,
       backgroundColor: Colors.green,
       colorText: Colors.white,
       snackPosition: SnackPosition.BOTTOM,

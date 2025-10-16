@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:khabir/services/language_service.dart';
 import '../models/service_model.dart';
 import 'ServicesController.dart';
 
 class AddServiceController extends GetxController {
   final ServicesController _servicesController = Get.find<ServicesController>();
 
-  // Observable lists
+  final LanguageService _languageService = Get.find<LanguageService>();
+
+  bool get isArabic => _languageService.isArabic;
+
+  // القوائم القابلة للمراقبة
   var availableServices = <ServiceModel>[].obs;
   var filteredServices = <ServiceModel>[].obs;
   var categories = <CategoryModel>[].obs;
 
-  // Selection states
+  // حالات التحديد
   var selectedServices = <bool>[].obs;
   var selectedCategoryId = Rxn<int>();
 
-  // Controllers
+  // الكونترولرز
   List<TextEditingController> priceControllers = [];
   final TextEditingController searchController = TextEditingController();
 
-  // Loading states
+  // حالات التحميل
   var isLoading = false.obs;
   var isAddingServices = false.obs;
 
@@ -47,7 +52,7 @@ class AddServiceController extends GetxController {
 
       // التأكد من وجود الكونترولر الرئيسي
       if (!Get.isRegistered<ServicesController>()) {
-        _showErrorSnackbar('خطأ', 'لم يتم العثور على بيانات الخدمات');
+        _showErrorSnackbar('error'.tr, 'no_data'.tr);
         return;
       }
 
@@ -61,7 +66,7 @@ class AddServiceController extends GetxController {
       initializeControllers();
     } catch (e) {
       print('Error loading initial data: $e');
-      _showErrorSnackbar('خطأ', 'فشل في تحميل البيانات');
+      _showErrorSnackbar('error'.tr, 'no_data'.tr);
     } finally {
       isLoading.value = false;
     }
@@ -70,7 +75,8 @@ class AddServiceController extends GetxController {
   // تهيئة الكونترولرز
   void initializeControllers() {
     // إعادة تعيين قوائم التحديد
-    selectedServices.value = List.generate(availableServices.length, (index) => false);
+    selectedServices.value =
+        List.generate(availableServices.length, (index) => false);
 
     // تنظيف الكونترولرز القديمة
     for (var controller in priceControllers) {
@@ -78,7 +84,8 @@ class AddServiceController extends GetxController {
     }
 
     // إنشاء كونترولرز جديدة للأسعار
-    priceControllers = availableServices.map((service) => TextEditingController()).toList();
+    priceControllers =
+        availableServices.map((service) => TextEditingController()).toList();
   }
 
   // إعداد مستمع البحث
@@ -89,12 +96,20 @@ class AddServiceController extends GetxController {
   }
 
   // تصفية الخدمات حسب البحث والصنف
+  // تصفية الخدمات حسب البحث والصنف
   void filterServices(String query) {
     var services = availableServices.where((service) {
       // تصفية حسب النص
       final matchesQuery = query.isEmpty ||
-          service.title.toLowerCase().contains(query.toLowerCase()) ||
-          service.description.toLowerCase().contains(query.toLowerCase());
+          service
+              .getTitle(isArabic)
+              .toLowerCase()
+              .contains(query.toLowerCase()) ||
+          (service
+                  .getDescription(isArabic)
+                  ?.toLowerCase()
+                  .contains(query.toLowerCase()) ??
+              false);
 
       // تصفية حسب الصنف
       final matchesCategory = selectedCategoryId.value == null ||
@@ -106,6 +121,14 @@ class AddServiceController extends GetxController {
     filteredServices.value = services;
   }
 
+// اختيار صنف مع تحديث القوائم
+  void selectCategory(int? categoryId) {
+    selectedCategoryId.value = categoryId;
+
+    // إعادة تطبيق البحث مع الفئة الجديدة
+    filterServices(searchController.text);
+  }
+
   // تبديل اختيار خدمة
   void toggleService(int filteredIndex) {
     try {
@@ -115,7 +138,8 @@ class AddServiceController extends GetxController {
       }
 
       final filteredService = filteredServices[filteredIndex];
-      final originalIndex = availableServices.indexWhere((s) => s.id == filteredService.id);
+      final originalIndex =
+          availableServices.indexWhere((s) => s.id == filteredService.id);
 
       selectedServices[originalIndex] = !selectedServices[originalIndex];
 
@@ -126,22 +150,24 @@ class AddServiceController extends GetxController {
 
       // إجبار التحديث
       selectedServices.refresh();
-
     } catch (e) {
       print('Error in toggleService: $e');
-      _showErrorSnackbar('خطأ', 'حدث خطأ غير متوقع');
+      _showErrorSnackbar('error'.tr, 'unexpected_error'.tr);
     }
   }
 
   // الحصول على حالة التحديد للخدمة المفلترة
   bool isServiceSelected(int filteredIndex) {
     try {
-      if (filteredIndex < 0 || filteredIndex >= filteredServices.length) return false;
+      if (filteredIndex < 0 || filteredIndex >= filteredServices.length)
+        return false;
 
       final filteredService = filteredServices[filteredIndex];
-      final originalIndex = availableServices.indexWhere((s) => s.id == filteredService.id);
+      final originalIndex =
+          availableServices.indexWhere((s) => s.id == filteredService.id);
 
-      if (originalIndex == -1 || originalIndex >= selectedServices.length) return false;
+      if (originalIndex == -1 || originalIndex >= selectedServices.length)
+        return false;
 
       return selectedServices[originalIndex];
     } catch (e) {
@@ -153,12 +179,15 @@ class AddServiceController extends GetxController {
   // الحصول على كونترولر السعر للخدمة المفلترة
   TextEditingController? getPriceController(int filteredIndex) {
     try {
-      if (filteredIndex < 0 || filteredIndex >= filteredServices.length) return null;
+      if (filteredIndex < 0 || filteredIndex >= filteredServices.length)
+        return null;
 
       final filteredService = filteredServices[filteredIndex];
-      final originalIndex = availableServices.indexWhere((s) => s.id == filteredService.id);
+      final originalIndex =
+          availableServices.indexWhere((s) => s.id == filteredService.id);
 
-      if (originalIndex == -1 || originalIndex >= priceControllers.length) return null;
+      if (originalIndex == -1 || originalIndex >= priceControllers.length)
+        return null;
 
       return priceControllers[originalIndex];
     } catch (e) {
@@ -201,7 +230,7 @@ class AddServiceController extends GetxController {
   // إضافة الخدمات المحددة - مع الإشعار والتصفير
   Future<void> addSelectedServices() async {
     if (!hasSelectedServices) {
-      _showErrorSnackbar('خطأ', 'يرجى اختيار خدمة واحدة على الأقل');
+      _showErrorSnackbar('error'.tr, 'select_at_least_one_service'.tr);
       return;
     }
 
@@ -212,15 +241,16 @@ class AddServiceController extends GetxController {
       for (int i = 0; i < availableServices.length; i++) {
         if (i < selectedServices.length && selectedServices[i]) {
           if (i >= priceControllers.length) {
-            _showErrorSnackbar('خطأ', 'خطأ في البيانات، يرجى المحاولة مرة أخرى');
+            _showErrorSnackbar('error'.tr, 'unexpected_error'.tr);
             return;
           }
 
           final priceText = priceControllers[i].text.trim();
           if (priceText.isEmpty) {
             _showErrorSnackbar(
-              'خطأ',
-              'يرجى إدخال سعر للخدمة: ${availableServices[i].title}',
+              'error'.tr,
+              'enter_price_for_service'.tr +
+                  ': ${availableServices[i].getTitle(isArabic)}',
             );
             return;
           }
@@ -228,8 +258,9 @@ class AddServiceController extends GetxController {
           final price = double.tryParse(priceText);
           if (price == null || price <= 0) {
             _showErrorSnackbar(
-              'خطأ',
-              'يرجى إدخال سعر صحيح للخدمة: ${availableServices[i].title}',
+              'error'.tr,
+              'enter_valid_price_for_service'.tr +
+                  ': ${availableServices[i].getTitle(isArabic)}',
             );
             return;
           }
@@ -251,8 +282,8 @@ class AddServiceController extends GetxController {
 
         // إظهار إشعار النجاح
         _showSuccessSnackbar(
-          'تم بنجاح',
-          'تم إضافة $selectedServicesCount خدمة بنجاح',
+          'success'.tr,
+          'services_added_successfully'.tr + ' $selectedServicesCount',
         );
 
         // تصفير جميع الحقول والتحديدات
@@ -263,7 +294,7 @@ class AddServiceController extends GetxController {
       }
     } catch (e) {
       print('Error adding services: $e');
-      _showErrorSnackbar('خطأ', 'حدث خطأ أثناء إضافة الخدمات');
+      _showErrorSnackbar('error'.tr, 'error_adding_services'.tr);
     } finally {
       isAddingServices.value = false;
     }
@@ -272,36 +303,6 @@ class AddServiceController extends GetxController {
   // تصفير جميع الحقول والتحديدات
   void _resetAllFields() {
     try {
-      // تصفير جميع الحقول والتحديدات
-      void _resetAllFields() {
-        try {
-          // مسح جميع التحديدات
-          for (int i = 0; i < selectedServices.length; i++) {
-            selectedServices[i] = false;
-          }
-
-          // مسح جميع أسعار الخدمات
-          for (var controller in priceControllers) {
-            controller.clear();
-          }
-
-          // مسح البحث
-          searchController.clear();
-
-          // إعادة تعيين الصنف المحدد
-          selectedCategoryId.value = null;
-
-          // إجبار التحديث
-          selectedServices.refresh();
-
-          // إعادة تطبيق التصفية
-          filteredServices.value = List.from(availableServices);
-
-        } catch (e) {
-          print('Error resetting fields: $e');
-        }
-      }
-
       // مسح جميع التحديدات
       for (int i = 0; i < selectedServices.length; i++) {
         selectedServices[i] = false;
@@ -323,25 +324,8 @@ class AddServiceController extends GetxController {
 
       // إعادة تطبيق التصفية
       filteredServices.value = List.from(availableServices);
-
     } catch (e) {
       print('Error resetting fields: $e');
-    }
-  }
-
-  // اختيار صنف مع تحديث القوائم
-  void selectCategory(int? categoryId) {
-    selectedCategoryId.value = categoryId;
-
-    // تطبيق التصفية
-    if (categoryId == null) {
-      // عرض جميع الخدمات
-      filteredServices.value = List.from(availableServices);
-    } else {
-      // تصفية حسب الصنف
-      filteredServices.value = availableServices
-          .where((service) => service.categoryId == categoryId)
-          .toList();
     }
   }
 
@@ -386,7 +370,7 @@ class AddServiceController extends GetxController {
   // الحصول على اسم الصنف
   String getCategoryName(int categoryId) {
     final category = categories.firstWhereOrNull((cat) => cat.id == categoryId);
-    return category?.titleAr ?? category?.titleEn ?? 'غير محدد';
+    return (isArabic == true ? category?.titleAr : category?.titleEn)!;
   }
 
   // إظهار رسالة نجاح

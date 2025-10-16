@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../routes/app_routes.dart';
-import '../../utils/colors.dart';
 import '../../utils/text_styles.dart';
 import '../../services/storage_service.dart';
+import '../../controllers/auth_controller.dart';
 
 class SplashView extends StatefulWidget {
   @override
@@ -18,6 +18,7 @@ class _SplashViewState extends State<SplashView>
   late Animation<double> _logoScaleAnimation;
   late Animation<double> _fadeOutAnimation;
   StorageService? storage;
+  AuthController? authController;
 
   @override
   void initState() {
@@ -33,6 +34,15 @@ class _SplashViewState extends State<SplashView>
       print('StorageService found successfully');
     } catch (e) {
       print('StorageService not found: $e');
+    }
+
+    try {
+      authController = Get.find<AuthController>();
+      print('AuthController found successfully');
+    } catch (e) {
+      print('AuthController not found: $e');
+      // إنشاء AuthController جديد إذا لم يكن موجوداً
+      authController = Get.put(AuthController());
     }
   }
 
@@ -83,11 +93,41 @@ class _SplashViewState extends State<SplashView>
     // انتظار قليل لعرض اللوغو
     await Future.delayed(const Duration(milliseconds: 800));
 
-    // بدء حركة الاختفاء
-    await _fadeOutController.forward();
+    // فحص التحديث قبل الانتقال
+    await _checkForUpdateAndNavigate();
+  }
 
-    // الانتقال للشاشة التالية
-    _navigateToNextScreen();
+  Future<void> _checkForUpdateAndNavigate() async {
+    try {
+      print('Starting update check...');
+      
+      // فحص التحديث
+      bool hasUpdate = false;
+      if (authController != null) {
+        hasUpdate = await authController!.checkForAppUpdate();
+      }
+
+      print('Update check completed. Has update: $hasUpdate');
+
+      // بدء حركة الاختفاء
+      await _fadeOutController.forward();
+
+      if (hasUpdate) {
+        // الانتقال لصفحة التحديث
+        print('Navigating to UPDATE page');
+        _smoothNavigate(AppRoutes.UPDATE); // تحتاج لإنشاء هذا الـ Route
+      } else {
+        // متابعة التدفق العادي
+        print('No update available, continuing normal flow');
+        _navigateToNextScreen();
+      }
+    } catch (e) {
+      print('Error during update check: $e');
+      
+      // في حال حدوث خطأ، متابعة التدفق العادي
+      await _fadeOutController.forward();
+      _navigateToNextScreen();
+    }
   }
 
   void _navigateToNextScreen() {
@@ -284,4 +324,6 @@ class _SplashViewState extends State<SplashView>
       ),
     );
   }
+
+  
 }

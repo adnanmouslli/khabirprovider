@@ -11,54 +11,45 @@ class ServicesService {
 
   // Services endpoints
   static const String _services = '/services';
-  static const String _categories = '/categories';
   static const String _servicesByCategory = '/services/category';
   static const String _providerServices = '/provider-service';
   static const String _addMultipleServices = '/provider-service/add-multiple';
 
-  // جلب جميع الخدمات
-  Future<List<ServiceModel>> getAllServices() async {
-    try {
-      final response = await _dioService.get('$_baseUrl$_services');
-
-      final List<dynamic> data = response.data ?? [];
-      return data.map((json) => ServiceModel.fromJson(json)).toList();
-    } catch (e) {
-      throw _handleError(e);
+  // جلب جميع الخدمات والفئات المتاحة للمزود
+Future<ServicesWithCategoriesResponse> getServicesWithCategories() async {
+  try {
+    final response = await _dioService.get('$_baseUrl$_services');
+    
+    // التحقق من أن الاستجابة هي مصفوفة
+    if (response.data is List) {
+      return ServicesWithCategoriesResponse.fromJson(response.data);
+    } else {
+      throw Exception('الاستجابة ليست بالتنسيق المتوقع');
     }
+  } catch (e) {
+    throw _handleError(e);
   }
+}
 
-  // جلب جميع الأصناف
-  Future<List<CategoryModel>> getAllCategories() async {
-    try {
-      final response = await _dioService.get('$_baseUrl$_categories');
-
-      final List<dynamic> data = response.data ?? [];
-      return data.map((json) => CategoryModel.fromJson(json)).toList();
-    } catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  // جلب الخدمات حسب الصنف
-  Future<List<ServiceModel>> getServicesByCategory(int categoryId) async {
-    try {
-      final response = await _dioService.get('$_baseUrl$_servicesByCategory/$categoryId');
-
-      final List<dynamic> data = response.data ?? [];
-      return data.map((json) => ServiceModel.fromJson(json)).toList();
-    } catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  // جلب خدمات المزود
+  // جلب خدمات المزود (مع العروض الفعالة)
   Future<List<ProviderServiceModel>> getProviderServices() async {
     try {
       final response = await _dioService.get('$_baseUrl$_providerServices');
 
       final List<dynamic> data = response.data ?? [];
       return data.map((json) => ProviderServiceModel.fromJson(json)).toList();
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // جلب الخدمات حسب الصنف (للمزود)
+  Future<List<ServiceModel>> getServicesByCategory(int categoryId) async {
+    try {
+      final response = await _dioService.get('$_baseUrl$_servicesByCategory/$categoryId');
+
+      final List<dynamic> data = response.data ?? [];
+      return data.map((json) => ServiceModel.fromJson(json)).toList();
     } catch (e) {
       throw _handleError(e);
     }

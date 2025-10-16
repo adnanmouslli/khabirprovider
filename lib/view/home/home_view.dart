@@ -12,8 +12,8 @@ class HomeView extends GetView<HomeController> {
         child: Column(
           children: [
             // Top Bar
-            TopBar(
-              notificationCount: 3,
+            Obx(() => TopBar(
+              notificationCount: controller.notificationsCount.value,
               onNotificationTap: () {
                 controller.handleNotificationTap();
               },
@@ -26,7 +26,7 @@ class HomeView extends GetView<HomeController> {
               onLogoTap: () {
                 Get.snackbar('خبير', 'welcome_message'.tr);
               },
-            ),
+            )),
 
             const SizedBox(height: 30),
 
@@ -44,21 +44,21 @@ class HomeView extends GetView<HomeController> {
                         mainAxisSpacing: 16,
                         childAspectRatio: 0.75, // نسبة أصغر لارتفاع أكبر
                         children: [
-                          // Services Card
-                          _buildGridCard(
+
+                          Obx(() => _buildGridCard(
                             imagePath: 'assets/images/grid1.png',
                             title: 'services'.tr,
-                            subtitle: '',
+                            subtitle: 'num : ${controller.servicesCount.value}',
                             onTap: () => controller.navigateToServices(),
-                          ),
+                          )),
 
                           // Requests Card
-                          _buildGridCard(
+                          Obx(() => _buildGridCard(
                             imagePath: 'assets/images/grid2.png',
                             title: 'requests'.tr,
-                            subtitle: '',
+                            subtitle: 'num : ${controller.notificationsCount.value}',
                             onTap: () => controller.navigateToRequests(),
-                          ),
+                          )),
 
                           // Income Card
                           _buildGridCard(

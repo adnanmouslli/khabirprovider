@@ -118,36 +118,43 @@ class ProviderModel {
 // نموذج الخدمة
 class ServiceModel {
   final int id;
-  final String title;
-  final String description;
+  final String titleAr;
+  final String titleEn;
+  final String? description;
   final String image;
   final int? categoryId;
   final double? commission;
 
   ServiceModel({
     required this.id,
-    required this.title,
-    required this.description,
+    required this.titleAr,
+    required this.titleEn,
+    this.description,
     required this.image,
     this.categoryId,
     this.commission,
   });
 
+  // للحصول على العنوان المناسب حسب اللغة
+  String getTitle(bool isArabic) => isArabic ? titleAr : titleEn;
+
   factory ServiceModel.fromJson(Map<String, dynamic> json) {
     return ServiceModel(
       id: json['id'] ?? 0,
-      title: json['title'] ?? '',
-      description: json['description'] ?? '',
+      titleAr: json['titleAr'] ?? '',
+      titleEn: json['titleEn'] ?? '',
+      description: json['description'],
       image: json['image'] ?? '',
       categoryId: json['categoryId'],
-      commission: json['commission']?.toDouble(),
+      commission: (json['commission'] ?? 0).toDouble(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'title': title,
+      'titleAr': titleAr,
+      'titleEn': titleEn,
       'description': description,
       'image': image,
       'categoryId': categoryId,
@@ -155,6 +162,7 @@ class ServiceModel {
     };
   }
 }
+
 
 // نموذج خدمة المزود (مع العرض)
 class ProviderServiceModel {
@@ -218,7 +226,6 @@ class ProviderServiceModel {
 // طلب إنشاء عرض جديد
 class CreateOfferRequest {
   final int serviceId;
-  final String title;
   final String description;
   final double originalPrice;
   final double offerPrice;
@@ -227,7 +234,6 @@ class CreateOfferRequest {
 
   CreateOfferRequest({
     required this.serviceId,
-    required this.title,
     required this.description,
     required this.originalPrice,
     required this.offerPrice,
@@ -238,7 +244,6 @@ class CreateOfferRequest {
   Map<String, dynamic> toJson() {
     return {
       'serviceId': serviceId,
-      'title': title,
       'description': description,
       'originalPrice': originalPrice,
       'offerPrice': offerPrice,

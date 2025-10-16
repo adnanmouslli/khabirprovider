@@ -35,4 +35,7 @@ abstract class AppRoutes {
 
     static const NOTIFICATIONS = '/notifications';
 
+  static const String UPDATE = '/update';
+
+  
 }

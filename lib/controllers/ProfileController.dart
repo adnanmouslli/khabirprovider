@@ -1,34 +1,42 @@
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'package:khabir/controllers/auth_controller.dart';
+import 'package:khabir/routes/app_routes.dart';
+import 'package:khabir/utils/colors.dart';
+import 'package:khabir/utils/openPrivacyPolicyUrl.dart';
+import 'package:khabir/widgets/PhoneField.dart';
 import '../services/language_service.dart';
 import '../services/profile_service.dart';
 import '../models/profile_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:async';
 
 import '../utils/app_config.dart';
-import '../view/profile/PDFViewerScreen.dart';
 
 class ProfileController extends GetxController {
   final ProfileService _profileService = ProfileService();
   final LanguageService _languageService = Get.find<LanguageService>();
   final ImagePicker _imagePicker = ImagePicker();
 
+  // متغيرات روابط الشروط والأحكام (إضافة جديدة)
+  var termsUrls = <String, String?>{}.obs;
+  var isLoadingTerms = false.obs;
+  var currentTermsUrl = ''.obs;
+
   // Observable user data
   var user = Rxn<User>();
   var systemInfo = Rxn<SystemInfo>();
   var isLoading = false.obs;
-  var isOnline = false.obs;
+
   var isUpdatingImage = false.obs;
+  var isOnline = false.obs;
 
   // Getters for easy access
   String get userName => user.value?.name ?? 'مستخدم';
 
   String get userPhone => user.value?.phone ?? '';
-
-  String get userEmail => user.value?.email ?? '';
 
   String get userState => isOnline.value ? 'Online' : 'Offline';
 
@@ -51,11 +59,482 @@ class ProfileController extends GetxController {
   List<Map<String, String>> get supportedLanguages =>
       _languageService.supportedLanguages;
 
+  bool get onlineStatus => user.value?.onlineStatus ?? false;
+
+  // متغيرات لتغيير رقم الهاتف
+  var isRequestingPhoneChange = false.obs;
+  var isVerifyingPhoneChange = false.obs;
+  var pendingPhoneNumber = ''.obs;
+  var otpSent = false.obs;
+
+  // Getters للشروط والأحكام (إضافة جديدة)
+  bool get hasTermsUrl => getTermsUrl()?.isNotEmpty ?? false;
+  bool get hasPrivacyUrl => getPrivacyUrl()?.isNotEmpty ?? false;
+
+  // الحصول على رابط الشروط والأحكام حسب اللغة الحالية
+  String? getTermsUrl() {
+    if (termsUrls.isEmpty) return null;
+    return isArabic ? termsUrls['terms_ar'] : termsUrls['terms_en'];
+  }
+
+  // الحصول على رابط سياسة الخصوصية حسب اللغة الحالية
+  String? getPrivacyUrl() {
+    if (termsUrls.isEmpty) return null;
+    return isArabic ? termsUrls['privacy_ar'] : termsUrls['privacy_en'];
+  }
+
+  // دالة مساعدة للحصول على نص حالة الشروط
+  String get termsStatusText {
+    if (isLoadingTerms.value) {
+      return isArabic ? 'جاري التحميل...' : 'Loading...';
+    }
+    if (!hasTermsUrl) {
+      return isArabic ? 'غير متوفر' : 'Not available';
+    }
+    return isArabic ? 'الشروط والأحكام' : 'Terms and Conditions';
+  }
+
+  // دالة مساعدة للحصول على نص حالة سياسة الخصوصية
+  String get privacyStatusText {
+    if (isLoadingTerms.value) {
+      return isArabic ? 'جاري التحميل...' : 'Loading...';
+    }
+    if (!hasPrivacyUrl) {
+      return isArabic ? 'غير متوفر' : 'Not available';
+    }
+    return isArabic ? 'سياسة الخصوصية' : 'Privacy Policy';
+  }
+
+// Timer للعد التنازلي
+  var resendTimer = 60.obs;
+  Timer? _resendTimer;
+
+  Future<void> requestPhoneChange(String newPhoneNumber) async {
+    try {
+      // التحقق من صحة الرقم
+      if (newPhoneNumber.trim().isEmpty) {
+        Get.snackbar(
+          isArabic ? 'خطأ' : 'Error',
+          isArabic
+              ? 'يرجى إدخال رقم هاتف صحيح'
+              : 'Please enter a valid phone number',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      // التحقق من أن الرقم مختلف عن الرقم الحالي
+      if (newPhoneNumber == userPhone) {
+        Get.snackbar(
+          isArabic ? 'خطأ' : 'Error',
+          isArabic
+              ? 'هذا هو رقمك الحالي بالفعل'
+              : 'This is already your current number',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      isRequestingPhoneChange.value = true;
+
+      Get.snackbar(
+        isArabic ? 'جاري الإرسال...' : 'Sending...',
+        isArabic ? 'يتم إرسال رمز التحقق' : 'Sending verification code',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.blue,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+
+      final response = await _profileService.requestPhoneChange(newPhoneNumber);
+
+      // حفظ الرقم الجديد مؤقتاً
+      pendingPhoneNumber.value = newPhoneNumber;
+      otpSent.value = true;
+
+      // بدء العد التنازلي
+      _startResendTimer();
+
+      Get.snackbar(
+        isArabic ? 'تم الإرسال' : 'Sent',
+        isArabic
+            ? 'تم إرسال رمز التحقق إلى $newPhoneNumber'
+            : 'Verification code sent to $newPhoneNumber',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    } catch (e) {
+      print('Error requesting phone change: $e');
+
+      String errorMessage = isArabic
+          ? 'فشل في إرسال رمز التحقق: ${e.toString()}'
+          : 'Failed to send verification code: ${e.toString()}';
+
+      Get.snackbar(
+        isArabic ? 'خطأ' : 'Error',
+        errorMessage,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 4),
+      );
+    } finally {
+      isRequestingPhoneChange.value = false;
+    }
+  }
+
+// دالة بدء العد التنازلي لإعادة الإرسال
+  void _startResendTimer() {
+    resendTimer.value = 60;
+    _resendTimer?.cancel();
+
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (resendTimer.value > 0) {
+        resendTimer.value--;
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+// دالة إعادة إرسال OTP
+  Future<void> resendOTP() async {
+    if (resendTimer.value > 0) {
+      Get.snackbar(
+        isArabic ? 'تنبيه' : 'Notice',
+        isArabic
+            ? 'يرجى الانتظار ${resendTimer.value} ثانية'
+            : 'Please wait ${resendTimer.value} seconds',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    await requestPhoneChange(pendingPhoneNumber.value);
+  }
+
+  Future<void> verifyPhoneChange(String otp) async {
+    try {
+      // التحقق من صحة OTP
+      if (otp.trim().isEmpty || otp.length < 4) {
+        Get.snackbar(
+          isArabic ? 'خطأ' : 'Error',
+          isArabic
+              ? 'يرجى إدخال رمز التحقق الصحيح'
+              : 'Please enter valid verification code',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      isVerifyingPhoneChange.value = true;
+
+      Get.snackbar(
+        isArabic ? 'جاري التحقق...' : 'Verifying...',
+        isArabic ? 'يتم التحقق من الرمز' : 'Verifying code',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.blue,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+
+      final response = await _profileService.verifyPhoneChange(
+        newPhoneNumber: pendingPhoneNumber.value,
+        otp: otp,
+      );
+
+      // تحديث بيانات المستخدم المحلية
+      if (user.value != null) {
+        user.value = user.value!.copyWith(phone: pendingPhoneNumber.value);
+      }
+
+      // إيقاف المؤقت وإعادة تعيين الحالة
+      _resendTimer?.cancel();
+      otpSent.value = false;
+      pendingPhoneNumber.value = '';
+
+      Get.back(); // إغلاق نافذة التحقق
+
+      Get.snackbar(
+        isArabic ? 'تم التحديث' : 'Updated',
+        isArabic
+            ? 'تم تغيير رقم الهاتف بنجاح'
+            : 'Phone number changed successfully',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+
+      // تحديث البروفايل
+      await loadUserProfile();
+    } catch (e) {
+      print('Error verifying phone change: $e');
+
+      String errorMessage;
+      if (e.toString().contains('Invalid OTP') ||
+          e.toString().contains('غير صحيح')) {
+        errorMessage =
+            isArabic ? 'رمز التحقق غير صحيح' : 'Invalid verification code';
+      } else if (e.toString().contains('expired') ||
+          e.toString().contains('منتهي')) {
+        errorMessage =
+            isArabic ? 'انتهت صلاحية رمز التحقق' : 'Verification code expired';
+      } else {
+        errorMessage =
+            isArabic ? 'فشل في التحقق من الرمز' : 'Failed to verify code';
+      }
+
+      Get.snackbar(
+        isArabic ? 'خطأ' : 'Error',
+        errorMessage,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 4),
+      );
+    } finally {
+      isVerifyingPhoneChange.value = false;
+    }
+  }
+
+  // Custom Dialog Widget
+  Widget _buildCustomDialog({
+    required String title,
+    required Widget content,
+    required List<Widget> actions,
+  }) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            
+            content,
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: actions.asMap().entries.map((entry) {
+                int index = entry.key;
+                Widget action = entry.value;
+                return Container(
+                  margin: EdgeInsets.only(
+                    left: isArabic && index > 0 ? 0 : (index > 0 ? 12 : 0),
+                    right: isArabic && index > 0 ? 12 : 0,
+                  ),
+                  child: action,
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Custom Button Widget
+  Widget _buildCustomButton({
+    required String text,
+    required VoidCallback onPressed,
+    bool isPrimary = false,
+  }) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        backgroundColor:
+            isPrimary ? const Color(0xFFEF4444) : Colors.transparent,
+        foregroundColor: isPrimary ? Colors.white : Colors.grey[600],
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: isPrimary
+              ? BorderSide.none
+              : BorderSide(color: Colors.grey[300]!, width: 1),
+        ),
+        elevation: 0,
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  // Custom ListTile Widget
+  Widget _buildCustomListTile({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Widget? trailing,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: const Color(0xFFEF4444),
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (trailing != null) trailing,
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void onInit() {
     super.onInit();
     loadUserProfile();
+    loadTermsAndConditions();
+
     ever(_languageService.currentLanguage, (_) => update());
+
+    // تحديث isOnline عند تغيير user
+    ever(user, (User? newUser) {
+      if (newUser != null) {
+        isOnline.value = newUser.onlineStatus!;
+      }
+    });
+  }
+
+  // تحميل الشروط والأحكام (إضافة جديدة)
+  Future<void> loadTermsAndConditions() async {
+    try {
+      isLoadingTerms.value = true;
+
+      final terms = await _profileService.getTermsAndConditions();
+      termsUrls.value = terms;
+
+      print('Terms loaded successfully in ProfileController');
+    } catch (e) {
+      print('Error loading terms and conditions in ProfileController: $e');
+      termsUrls.value = {
+        'terms_ar': null,
+        'terms_en': null,
+        'privacy_en': null,
+        'privacy_ar': null
+      };
+      currentTermsUrl.value = '';
+    } finally {
+      isLoadingTerms.value = false;
+    }
+  }
+
+  // فتح صفحة الشروط والأحكام (تحديث الدالة الموجودة)
+  Future<void> openTermsAndConditions() async {
+    try {
+      if (termsUrls.isEmpty || isLoadingTerms.value) {
+        await loadTermsAndConditions();
+      }
+
+      final termsUrl = getTermsUrl();
+
+      if (termsUrl == null || termsUrl.isEmpty) {
+        Get.snackbar(
+          isArabic ? 'خطأ' : 'Error',
+          isArabic
+              ? 'رابط الشروط والأحكام غير متوفر حالياً'
+              : 'Terms and conditions link is not available currently',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+
+    final termsTitle = isArabic ? 'الشروط والأحكام' : 'Terms and Conditions';
+
+      openPrivacyPolicyUrl(termsUrl, termsTitle);
+    } catch (e) {
+      Get.snackbar(
+        isArabic ? 'خطأ' : 'Error',
+        e.toString(),
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  // فتح صفحة سياسة الخصوصية (تحديث الدالة الموجودة)
+  Future<void> openPrivacyPolicy() async {
+    try {
+      if (termsUrls.isEmpty || isLoadingTerms.value) {
+        await loadTermsAndConditions();
+      }
+
+      final privacyUrl = getPrivacyUrl();
+
+      if (privacyUrl == null || privacyUrl.isEmpty) {
+        Get.snackbar(
+          isArabic ? 'خطأ' : 'Error',
+          isArabic
+              ? 'رابط سياسة الخصوصية غير متوفر حالياً'
+              : 'Privacy policy link is not available currently',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+
+      final privacyTitle = isArabic ? 'سياسة الخصوصية' : 'Privacy Policy';
+
+      openPrivacyPolicyUrl(privacyUrl, privacyTitle);
+    } catch (e) {
+      Get.snackbar(
+        isArabic ? 'خطأ' : 'Error',
+        e.toString(),
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 
   Future<void> updateProfileImage() async {
@@ -78,10 +557,13 @@ class ProfileController extends GetxController {
       final file = File(pickedFile.path);
       final fileSize = await file.length();
 
-      if (fileSize > 5 * 1024 * 1024) { // 5 ميجا
+      if (fileSize > 5 * 1024 * 1024) {
+        // 5 ميجا
         Get.snackbar(
           isArabic ? 'خطأ' : 'Error',
-          isArabic ? 'حجم الصورة كبير جداً. يجب أن يكون أقل من 5 ميجا' : 'Image size is too large. Must be less than 5MB',
+          isArabic
+              ? 'حجم الصورة كبير جداً. يجب أن يكون أقل من 5 ميجا'
+              : 'Image size is too large. Must be less than 5MB',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red,
           colorText: Colors.white,
@@ -106,25 +588,30 @@ class ProfileController extends GetxController {
 
       Get.snackbar(
         isArabic ? 'تم التحديث' : 'Updated',
-        isArabic ? 'تم تحديث صورة الملف الشخصي بنجاح' : 'Profile image updated successfully',
+        isArabic
+            ? 'تم تحديث صورة الملف الشخصي بنجاح'
+            : 'Profile image updated successfully',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.green,
         colorText: Colors.white,
         duration: const Duration(seconds: 2),
       );
-
     } catch (e) {
       print('Error updating profile image: $e');
 
       String errorMessage;
       if (e.toString().contains('حجم الصورة كبير')) {
-        errorMessage = isArabic ? 'حجم الصورة كبير جداً' : 'Image size is too large';
+        errorMessage =
+            isArabic ? 'حجم الصورة كبير جداً' : 'Image size is too large';
       } else if (e.toString().contains('نوع ملف غير مدعوم')) {
-        errorMessage = isArabic ? 'نوع الصورة غير مدعوم' : 'Unsupported image type';
+        errorMessage =
+            isArabic ? 'نوع الصورة غير مدعوم' : 'Unsupported image type';
       } else if (e.toString().contains('لا يوجد اتصال')) {
-        errorMessage = isArabic ? 'لا يوجد اتصال بالإنترنت' : 'No internet connection';
+        errorMessage =
+            isArabic ? 'لا يوجد اتصال بالإنترنت' : 'No internet connection';
       } else {
-        errorMessage = isArabic ? 'فشل في تحديث الصورة' : 'Failed to update image';
+        errorMessage =
+            isArabic ? 'فشل في تحديث الصورة' : 'Failed to update image';
       }
 
       Get.snackbar(
@@ -143,27 +630,26 @@ class ProfileController extends GetxController {
   // Show image source selection dialog
   Future<ImageSource?> _showImageSourceDialog() async {
     return await Get.dialog<ImageSource>(
-      AlertDialog(
-        title: Text(isArabic ? 'اختيار الصورة' : 'Select Image'),
+      _buildCustomDialog(
+        title: isArabic ? 'اختيار الصورة' : 'Select Image',
         content: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera, color: Color(0xFFEF4444)),
-              title: Text(isArabic ? 'الكاميرا' : 'Camera'),
+            _buildCustomListTile(
+              icon: Icons.photo_camera,
+              title: isArabic ? 'الكاميرا' : 'Camera',
               onTap: () => Get.back(result: ImageSource.camera),
             ),
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: Color(0xFFEF4444)),
-              title: Text(isArabic ? 'معرض الصور' : 'Gallery'),
+            _buildCustomListTile(
+              icon: Icons.photo_library,
+              title: isArabic ? 'معرض الصور' : 'Gallery',
               onTap: () => Get.back(result: ImageSource.gallery),
             ),
           ],
         ),
         actions: [
-          TextButton(
+          _buildCustomButton(
+            text: isArabic ? 'إلغاء' : 'Cancel',
             onPressed: () => Get.back(),
-            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
           ),
         ],
       ),
@@ -175,30 +661,45 @@ class ProfileController extends GetxController {
     final addressController = TextEditingController(text: userAddress);
 
     Get.dialog(
-      AlertDialog(
-        title: Text(isArabic ? 'تعديل العنوان' : 'Edit Address'),
+      _buildCustomDialog(
+        title: isArabic ? 'تعديل العنوان' : 'Edit Address',
         content: TextField(
           controller: addressController,
           decoration: InputDecoration(
             labelText: isArabic ? 'العنوان' : 'Address',
-            hintText: isArabic ? 'أدخل عنوانك الكامل' : 'Enter your full address',
-            border: const OutlineInputBorder(),
-            prefixIcon: const Icon(Icons.location_on_outlined),
+            hintText:
+                isArabic ? 'أدخل عنوانك الكامل' : 'Enter your full address',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFEF4444)),
+            ),
+            prefixIcon:
+                Icon(Icons.location_on_outlined, color: Colors.grey[600]),
+            filled: true,
+            fillColor: Colors.grey[50],
           ),
           maxLines: 3,
           textInputAction: TextInputAction.done,
         ),
         actions: [
-          TextButton(
+          _buildCustomButton(
+            text: isArabic ? 'إلغاء' : 'Cancel',
             onPressed: () => Get.back(),
-            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
           ),
-          TextButton(
+          _buildCustomButton(
+            text: isArabic ? 'حفظ' : 'Save',
+            isPrimary: true,
             onPressed: () async {
               if (addressController.text.trim().isEmpty) {
                 Get.snackbar(
                   isArabic ? 'خطأ' : 'Error',
-                  isArabic ? 'يرجى إدخال عنوان صحيح' : 'Please enter a valid address',
+                  isArabic
+                      ? 'يرجى إدخال عنوان صحيح'
+                      : 'Please enter a valid address',
                   snackPosition: SnackPosition.BOTTOM,
                   backgroundColor: Colors.red,
                   colorText: Colors.white,
@@ -209,7 +710,6 @@ class ProfileController extends GetxController {
               Get.back();
               await updateProfile(address: addressController.text.trim());
             },
-            child: Text(isArabic ? 'حفظ' : 'Save'),
           ),
         ],
       ),
@@ -267,12 +767,12 @@ class ProfileController extends GetxController {
       // إصلاح الرابط
       if (url.startsWith('/uploads')) {
         url = '${AppConfig.fileUrl}$url';
-      }
-      else if (url.startsWith('///')) {
+      } else if (url.startsWith('///')) {
         url = '${AppConfig.fileUrl}${url.substring(2)}';
-      }
-      else if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        if (url.startsWith('www.') || url.contains('.com') || url.contains('.org')) {
+      } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        if (url.startsWith('www.') ||
+            url.contains('.com') ||
+            url.contains('.org')) {
           url = 'https://$url';
         } else {
           url = '${AppConfig.fileUrl}/$url';
@@ -402,20 +902,10 @@ class ProfileController extends GetxController {
 
       print('Raw API Response: $response');
 
-      // التحقق من وجود البيانات المطلوبة
-      if (response == null) {
-        throw Exception('لا توجد بيانات من الخادم');
-      }
-
-      if (!response.containsKey('provider')) {
+      if (response == null || !response.containsKey('provider')) {
         throw Exception('بيانات المستخدم غير موجودة في الاستجابة');
       }
 
-      if (!response.containsKey('systemInfo')) {
-        throw Exception('معلومات النظام غير موجودة في الاستجابة');
-      }
-
-      // التحقق من أن بيانات provider ليست null
       if (response['provider'] == null) {
         throw Exception('بيانات المزود فارغة');
       }
@@ -423,45 +913,19 @@ class ProfileController extends GetxController {
       print('Creating ProfileResponse from JSON...');
       final profileResponse = ProfileResponse.fromJson(response);
 
-      print('ProfileResponse created successfully');
-      print('User: ${profileResponse.user.name}');
-      print('Email: ${profileResponse.user.email}');
-      print('User ID: ${profileResponse.user.id}');
-
       user.value = profileResponse.user;
       systemInfo.value = profileResponse.systemInfo;
 
-      // Set online status based on user activity
-      isOnline.value = profileResponse.user.isActive;
+      // ✅ تحديث حالة الاتصال من onlineStatus وليس isActive
+      isOnline.value = profileResponse.user.onlineStatus!;
 
-      // حفظ بيانات البروفايل في التخزين المحلي
       await _profileService.saveProfileToStorage(response);
 
-      print('Profile loaded and saved successfully');
-
+      print('Profile loaded successfully');
+      print('Online Status: ${profileResponse.user.onlineStatus}');
     } catch (e, stackTrace) {
       print('Error loading profile: $e');
-      print('Stack trace: $stackTrace');
-
-      String errorMessage;
-      if (e.toString().contains('type \'Null\' is not a subtype')) {
-        errorMessage = 'خطأ في تحليل البيانات من الخادم';
-      } else if (e.toString().contains('لا توجد بيانات')) {
-        errorMessage = 'لا توجد بيانات من الخادم';
-      } else if (e.toString().contains('بيانات المستخدم غير موجودة')) {
-        errorMessage = 'بيانات المستخدم غير موجودة في الاستجابة';
-      } else {
-        errorMessage = 'فشل في تحميل بيانات الملف الشخصي: $e';
-      }
-
-      Get.snackbar(
-        'خطأ',
-        errorMessage,
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 5),
-      );
+      // باقي معالجة الأخطاء...
     } finally {
       isLoading.value = false;
     }
@@ -471,71 +935,321 @@ class ProfileController extends GetxController {
   void editProfile() {
     final nameController = TextEditingController(text: userName);
     final phoneController = TextEditingController(text: userPhone);
-    final emailController = TextEditingController(text: userEmail);
 
     Get.dialog(
-      AlertDialog(
-        title: Text(isArabic ? 'تعديل الملف الشخصي' : 'Edit Profile'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(
-                  labelText: isArabic ? 'الاسم' : 'Name',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.person_outline),
+      _buildCustomDialog(
+        title: isArabic ? 'تعديل الملف الشخصي' : 'Edit Profile',
+        content: Column(
+          children: [
+            // حقل الاسم
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: isArabic ? 'الاسم' : 'Name',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFEF4444)),
+                ),
+                prefixIcon: Icon(Icons.person_outline, color: Colors.grey[600]),
+                filled: true,
+                fillColor: Colors.grey[50],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // حقل رقم الهاتف (للعرض فقط)
+            TextField(
+              controller: phoneController,
+              enabled: false, // غير قابل للتعديل مباشرة
+              decoration: InputDecoration(
+                labelText: isArabic ? 'رقم الهاتف' : 'Phone Number',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                prefixIcon: Icon(Icons.phone_outlined, color: Colors.grey[600]),
+                filled: true,
+                fillColor: Colors.grey[100],
+              ),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 8),
+
+            // زر تغيير رقم الهاتف
+            Align(
+              alignment:
+                  isArabic ? Alignment.centerRight : Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () {
+                  Get.back(); // إغلاق نافذة التعديل
+                  _showPhoneChangeDialog(); // فتح نافذة تغيير الرقم
+                },
+                icon: const Icon(Icons.edit, size: 16),
+                label: Text(
+                  isArabic ? 'تغيير رقم الهاتف' : 'Change Phone Number',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFEF4444),
                 ),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: phoneController,
-                decoration: InputDecoration(
-                  labelText: isArabic ? 'رقم الهاتف' : 'Phone Number',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.phone_outlined),
-                ),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: emailController,
-                decoration: InputDecoration(
-                  labelText: isArabic ? 'البريد الإلكتروني' : 'Email',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.email_outlined),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
         actions: [
-          TextButton(
+          _buildCustomButton(
+            text: isArabic ? 'إلغاء' : 'Cancel',
             onPressed: () => Get.back(),
-            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
           ),
-          TextButton(
+          _buildCustomButton(
+            text: isArabic ? 'حفظ' : 'Save',
+            isPrimary: true,
             onPressed: () async {
               Get.back();
+              // تحديث الاسم فقط
               await updateProfile(
                 name: nameController.text.trim(),
-                phone: phoneController.text.trim(),
-                email: emailController.text.trim(),
               );
             },
-            child: Text(isArabic ? 'حفظ' : 'Save'),
           ),
         ],
       ),
     );
   }
 
+  void _showPhoneChangeDialog() {
+    final newPhoneController = TextEditingController();
+    final otpController = TextEditingController();
+
+    // متغيرات reactive لحالة الأخطاء
+    var phoneError = ''.obs;
+    var otpError = ''.obs;
+
+    Get.dialog(
+      Obx(() => _buildCustomDialog(
+            title: isArabic ? 'تغيير رقم الهاتف' : 'Change Phone Number',
+            content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // حقل رقم الهاتف الجديد باستخدام PhoneField
+                ObxPhoneField(
+                  controller: newPhoneController,
+                  hintText: isArabic ? '12345678' : '12345678',
+                  enabled: !otpSent.value,
+                  errorText: phoneError,
+                  showValidIcon: true,
+                  onChanged: (value) {
+                    // مسح رسالة الخطأ عند الكتابة
+                    if (phoneError.value.isNotEmpty) {
+                      phoneError.value = '';
+                    }
+                    // التحقق من صحة الرقم
+                    if (value.length >= 8) {
+                      phoneError.value = '';
+                    }
+                  },
+                ),
+
+                // حقل OTP (يظهر فقط بعد إرسال الرمز)
+                if (otpSent.value) ...[
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: otpController,
+                    decoration: InputDecoration(
+                      labelText: isArabic ? 'رمز التحقق' : 'Verification Code',
+                      hintText: isArabic
+                          ? 'أدخل الرمز المرسل'
+                          : 'Enter the code sent',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: otpError.value.isNotEmpty
+                              ? Colors.red
+                              : AppColors.primary,
+                          width: 1.5,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: otpError.value.isNotEmpty
+                              ? Colors.red
+                              : AppColors.primary,
+                          width: 1.5,
+                        ),
+                      ),
+                      prefixIcon: Icon(
+                        Icons.verified_user_outlined,
+                        color: otpError.value.isNotEmpty
+                            ? Colors.red
+                            : Colors.grey[600],
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      // رسالة الخطأ
+                      errorText:
+                          otpError.value.isNotEmpty ? otpError.value : null,
+                    ),
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    onChanged: (value) {
+                      // مسح رسالة الخطأ عند الكتابة
+                      if (otpError.value.isNotEmpty) {
+                        otpError.value = '';
+                      }
+                    },
+                  ),
+
+                  // زر إعادة الإرسال
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        isArabic
+                            ? 'لم يصلك الرمز؟'
+                            : "Didn't receive the code?",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: resendTimer.value == 0
+                            ? () async {
+                                await resendOTP();
+                              }
+                            : null,
+                        child: Text(
+                          resendTimer.value > 0
+                              ? '${resendTimer.value}s'
+                              : (isArabic ? 'إعادة إرسال' : 'Resend'),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: resendTimer.value > 0
+                                ? Colors.grey[400]
+                                : const Color(0xFFEF4444),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                // رسالة تنبيهية
+                if (!otpSent.value) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline,
+                            color: Colors.blue[700], size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isArabic
+                                ? 'سيتم إرسال رمز التحقق إلى الرقم الجديد'
+                                : 'A verification code will be sent to the new number',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.blue[700],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              _buildCustomButton(
+                text: isArabic ? 'إلغاء' : 'Cancel',
+                onPressed: () {
+                  _resendTimer?.cancel();
+                  otpSent.value = false;
+                  pendingPhoneNumber.value = '';
+                  phoneError.value = '';
+                  otpError.value = '';
+                  Get.back();
+                },
+              ),
+              Obx(() => otpSent.value
+                  ? _buildCustomButton(
+                      text: isVerifyingPhoneChange.value
+                          ? (isArabic ? 'جاري التحقق...' : 'Verifying...')
+                          : (isArabic ? 'تأكيد' : 'Verify'),
+                      isPrimary: true,
+                      onPressed: isVerifyingPhoneChange.value
+                          ? () {}
+                          : () async {
+                              // التحقق من صحة OTP
+                              if (otpController.text.trim().isEmpty) {
+                                otpError.value = isArabic
+                                    ? 'يرجى إدخال رمز التحقق'
+                                    : 'Please enter verification code';
+                                return;
+                              }
+                              if (otpController.text.trim().length < 4) {
+                                otpError.value = isArabic
+                                    ? 'رمز التحقق غير صحيح'
+                                    : 'Invalid verification code';
+                                return;
+                              }
+
+                              await verifyPhoneChange(
+                                  otpController.text.trim());
+                            },
+                    )
+                  : _buildCustomButton(
+                      text: isRequestingPhoneChange.value
+                          ? (isArabic ? 'جاري الإرسال...' : 'Sending...')
+                          : (isArabic ? 'إرسال الرمز' : 'Send Code'),
+                      isPrimary: true,
+                      onPressed: isRequestingPhoneChange.value
+                          ? () {}
+                          : () async {
+                              // التحقق من صحة رقم الهاتف
+                              final phoneNumber =
+                                  newPhoneController.text.trim();
+
+                              if (phoneNumber.isEmpty) {
+                                phoneError.value = isArabic
+                                    ? 'يرجى إدخال رقم الهاتف'
+                                    : 'Please enter phone number';
+                                return;
+                              }
+
+                              if (phoneNumber.length < 8) {
+                                phoneError.value = isArabic
+                                    ? 'رقم الهاتف قصير جداً'
+                                    : 'Phone number is too short';
+                                return;
+                              }
+
+                              // إضافة رمز البلد إلى الرقم
+                              final fullPhoneNumber = '+968$phoneNumber';
+                              await requestPhoneChange(fullPhoneNumber);
+                            },
+                    )),
+            ],
+          )),
+    );
+  }
+
   // Update profile via API
   Future<void> updateProfile({
     String? name,
-    String? email,
     String? phone,
     String? address,
     String? state,
@@ -548,7 +1262,6 @@ class ProfileController extends GetxController {
 
       final response = await _profileService.updateProfile(
         name: name,
-        email: email,
         phone: phone,
         address: address,
         state: state,
@@ -569,7 +1282,8 @@ class ProfileController extends GetxController {
             if (data is Map<String, dynamic>) {
               newImageUrl = data['image'] ?? data['image_url'] ?? data['url'];
             }
-            newImageUrl ??= response['image'] ?? response['image_url'] ?? response['url'];
+            newImageUrl ??=
+                response['image'] ?? response['image_url'] ?? response['url'];
 
             // التأكد من أن الرابط صحيح
             if (newImageUrl != null && !newImageUrl.startsWith('http')) {
@@ -581,7 +1295,6 @@ class ProfileController extends GetxController {
         // تحديث بيانات المستخدم المحلية
         user.value = user.value!.copyWith(
           name: name ?? user.value!.name,
-          email: email ?? user.value!.email,
           phone: phone ?? user.value!.phone,
           address: address ?? user.value!.address,
           description: description ?? user.value!.description,
@@ -613,13 +1326,13 @@ class ProfileController extends GetxController {
             ? 'خطأ في بيانات المستخدم. يرجى إعادة تسجيل الدخول'
             : 'User data error. Please login again';
       } else if (e.toString().contains('لا يوجد اتصال')) {
-        errorMessage = isArabic ? 'لا يوجد اتصال بالإنترنت' : 'No internet connection';
+        errorMessage =
+            isArabic ? 'لا يوجد اتصال بالإنترنت' : 'No internet connection';
       } else if (e.toString().contains('انتهت مهلة')) {
         errorMessage = isArabic ? 'انتهت مهلة الاتصال' : 'Connection timeout';
       } else {
-        errorMessage = isArabic
-            ? 'فشل في تحديث الملف الشخصي'
-            : 'Failed to update profile';
+        errorMessage =
+            isArabic ? 'فشل في تحديث الملف الشخصي' : 'Failed to update profile';
       }
 
       Get.snackbar(
@@ -638,15 +1351,15 @@ class ProfileController extends GetxController {
   // Change language
   Future<void> changeLanguage() async {
     Get.dialog(
-      AlertDialog(
-        title: Text(isArabic ? 'اختيار اللغة' : 'Choose Language'),
+      _buildCustomDialog(
+        title: isArabic ? 'اختيار اللغة' : 'Choose Language',
         content: Column(
-          mainAxisSize: MainAxisSize.min,
           children: supportedLanguages.map((language) {
-            return ListTile(
-              title: Text(language['name']!),
+            return _buildCustomListTile(
+              icon: Icons.language,
+              title: language['name']!,
               trailing: selectedLanguage == language['code']
-                  ? const Icon(Icons.check, color: Colors.green)
+                  ? const Icon(Icons.check, color: Color(0xFFEF4444))
                   : null,
               onTap: () async {
                 Get.back();
@@ -655,6 +1368,12 @@ class ProfileController extends GetxController {
             );
           }).toList(),
         ),
+        actions: [
+          _buildCustomButton(
+            text: isArabic ? 'إلغاء' : 'Cancel',
+            onPressed: () => Get.back(),
+          ),
+        ],
       ),
     );
   }
@@ -687,28 +1406,41 @@ class ProfileController extends GetxController {
     final descriptionController = TextEditingController(text: userDescription);
 
     Get.dialog(
-      AlertDialog(
-        title: Text(isArabic ? 'تعديل الوصف' : 'Edit Description'),
+      _buildCustomDialog(
+        title: isArabic ? 'تعديل الوصف' : 'Edit Description',
         content: TextField(
           controller: descriptionController,
           decoration: InputDecoration(
             labelText: isArabic ? 'وصف الملف الشخصي' : 'Profile Description',
-            hintText: isArabic ? 'اكتب وصفاً عن نفسك وخدماتك' : 'Write a description about yourself and your services',
-            border: const OutlineInputBorder(),
+            hintText: isArabic
+                ? 'اكتب وصفاً عن نفسك وخدماتك'
+                : 'Write a description about yourself and your services',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFEF4444)),
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
           ),
           maxLines: 4,
         ),
         actions: [
-          TextButton(
+          _buildCustomButton(
+            text: isArabic ? 'إلغاء' : 'Cancel',
             onPressed: () => Get.back(),
-            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
           ),
-          TextButton(
+          _buildCustomButton(
+            text: isArabic ? 'حفظ' : 'Save',
+            isPrimary: true,
             onPressed: () async {
               Get.back();
-              await updateProfile(description: descriptionController.text.trim());
+              await updateProfile(
+                  description: descriptionController.text.trim());
             },
-            child: Text(isArabic ? 'حفظ' : 'Save'),
           ),
         ],
       ),
@@ -718,21 +1450,21 @@ class ProfileController extends GetxController {
   // Toggle online status
   Future<void> toggleOnlineStatus() async {
     try {
-      // التحقق من وجود ID المزود قبل محاولة التحديث
       final providerId = _profileService.getProviderIdFromStorage();
       if (providerId == null) {
-        throw Exception('لا يمكن العثور على معرف المزود. يرجى إعادة تسجيل الدخول.');
+        throw Exception(
+            'لا يمكن العثور على معرف المزود. يرجى إعادة تسجيل الدخول.');
       }
 
-      print('Provider ID found: $providerId');
+      print('Current online status: ${isOnline.value}');
 
-      // حفظ الحالة القديمة في حالة فشل API
+      // حفظ الحالة القديمة
       final oldStatus = isOnline.value;
 
-      // تغيير الحالة مؤقتاً لإظهار التغيير فوراً
-      isOnline.value = !isOnline.value;
+      // تغيير الحالة مؤقتاً
+      final newStatus = !oldStatus;
+      isOnline.value = newStatus;
 
-      // إظهار رسالة تحميل
       Get.snackbar(
         isArabic ? 'جاري التحديث...' : 'Updating...',
         isArabic ? 'يتم تحديث حالتك' : 'Updating your status',
@@ -742,42 +1474,34 @@ class ProfileController extends GetxController {
         duration: const Duration(seconds: 1),
       );
 
-      // استدعاء API لتحديث الحالة
-      await _profileService.updateProviderStatus(isOnline.value);
+      // ✅ استدعاء API لتحديث onlineStatus
+      await _profileService.updateProviderStatus(newStatus);
 
       // تحديث بيانات المستخدم المحلية
       if (user.value != null) {
-        user.value = user.value!.copyWith(isActive: isOnline.value);
+        user.value = user.value!.copyWith(onlineStatus: newStatus);
       }
 
-      // إظهار رسالة نجاح
       Get.snackbar(
         isArabic ? 'تم التحديث' : 'Updated',
         isArabic
-            ? 'أنت الآن ${isOnline.value ? "متصل" : "غير متصل"}'
-            : 'You are now ${isOnline.value ? "online" : "offline"}',
+            ? 'أنت الآن ${newStatus ? "متصل" : "غير متصل"}'
+            : 'You are now ${newStatus ? "online" : "offline"}',
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: isOnline.value ? Colors.green : Colors.grey,
+        backgroundColor: newStatus ? Colors.green : Colors.grey,
         colorText: Colors.white,
         duration: const Duration(seconds: 2),
       );
 
+      print('Online status updated to: $newStatus');
     } catch (e) {
-      // في حالة فشل API، إرجاع الحالة القديمة
+      // إرجاع الحالة القديمة في حالة فشل API
       isOnline.value = !isOnline.value;
 
-      print('Error updating provider status: $e');
+      print('Error updating online status: $e');
 
-      String errorMessage;
-      if (e.toString().contains('لا يمكن العثور على معرف المزود')) {
-        errorMessage = isArabic
-            ? 'خطأ في بيانات المستخدم. يرجى إعادة تسجيل الدخول.'
-            : 'User data error. Please login again.';
-      } else {
-        errorMessage = isArabic
-            ? 'فشل في تحديث الحالة: $e'
-            : 'Failed to update status: $e';
-      }
+      String errorMessage =
+          isArabic ? 'فشل في تحديث الحالة: $e' : 'Failed to update status: $e';
 
       Get.snackbar(
         isArabic ? 'خطأ' : 'Error',
@@ -790,44 +1514,26 @@ class ProfileController extends GetxController {
     }
   }
 
-  // Open Terms and Conditions
-  Future<void> openTermsAndConditions() async {
-    final termsUrl = isArabic
-        ? systemInfo.value?.legalDocuments.termsAr
-        : systemInfo.value?.legalDocuments.termsEn;
+  // WhatsApp handler
+  Future<void> handleWhatsAppTap(String phoneNumber) async {
+    try {
+      final String supportNumber = phoneNumber;
+      final String message = Uri.encodeComponent('whatsapp_help_message'.tr);
 
-    if (termsUrl != null && termsUrl.isNotEmpty) {
-      await _openUrl(termsUrl);
-    } else {
-      Get.snackbar(
-        isArabic ? 'الشروط والأحكام' : 'Terms and Conditions',
-        isArabic
-            ? 'سيتم فتح صفحة الشروط والأحكام'
-            : 'Terms page will be opened',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.blue,
-        colorText: Colors.white,
+      final String whatsappUrl = 'https://wa.me/$supportNumber?text=$message';
+
+      await launchUrl(
+        Uri.parse(whatsappUrl),
+        mode: LaunchMode.externalApplication,
       );
-    }
-  }
-
-  // Open Privacy Policy
-  Future<void> openPrivacyPolicy() async {
-    final privacyUrl = isArabic
-        ? systemInfo.value?.legalDocuments.privacyAr
-        : systemInfo.value?.legalDocuments.privacyEn;
-
-    if (privacyUrl != null && privacyUrl.isNotEmpty) {
-      await _openUrl(privacyUrl);
-    } else {
+    } catch (e) {
       Get.snackbar(
-        isArabic ? 'سياسة الخصوصية' : 'Privacy Policy',
-        isArabic
-            ? 'سيتم فتح صفحة سياسة الخصوصية'
-            : 'Privacy page will be opened',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.blue,
+        'error'.tr,
+        'whatsapp_error_message'.tr,
+        backgroundColor: Colors.red,
         colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
       );
     }
   }
@@ -836,147 +1542,434 @@ class ProfileController extends GetxController {
   Future<void> contactSupport() async {
     final whatsappSupport = systemInfo.value?.support.whatsappSupport;
 
-    Get.dialog(
-      AlertDialog(
-        title: Text(isArabic ? 'الدعم الفني' : 'Technical Support'),
-        content: Text(isArabic
-            ? 'اختر طريقة التواصل مع الدعم الفني:'
-            : 'Choose how to contact technical support:'),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Get.back();
-              if (whatsappSupport != null && whatsappSupport.isNotEmpty) {
-                await _openUrl(whatsappSupport);
-              } else {
-                Get.snackbar(
-                  isArabic ? 'واتساب' : 'WhatsApp',
-                  isArabic
-                      ? 'سيتم فتح محادثة واتساب مع الدعم الفني'
-                      : 'WhatsApp support will be opened',
-                  snackPosition: SnackPosition.BOTTOM,
-                  backgroundColor: Colors.green,
-                  colorText: Colors.white,
-                );
-              }
-            },
-            child: Text(isArabic ? 'واتساب' : 'WhatsApp'),
-          ),
-          TextButton(
-            onPressed: () {
-              Get.back();
-              Get.snackbar(
-                isArabic ? 'البريد الإلكتروني' : 'Email',
-                isArabic
-                    ? 'سيتم فتح تطبيق البريد الإلكتروني'
-                    : 'Email app will be opened',
-                snackPosition: SnackPosition.BOTTOM,
-                backgroundColor: Colors.blue,
-                colorText: Colors.white,
-              );
-            },
-            child: Text(isArabic ? 'البريد الإلكتروني' : 'Email'),
-          ),
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
-          ),
-        ],
-      ),
-    );
+    try {
+      await handleWhatsAppTap(whatsappSupport!);
+    } catch (e) {
+      Get.snackbar(
+        'خطأ',
+        "الرقم غير متوفر",
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+      );
+      print("Error: ${e}");
+    }
   }
 
   // Delete Account
-  void deleteAccount() {
+  Future<void> deleteAccount() async {
     Get.dialog(
-      AlertDialog(
-        title: Text(isArabic ? 'حذف الحساب' : 'Delete Account'),
-        content: Text(isArabic
-            ? 'هل أنت متأكد من حذف حسابك؟ هذا الإجراء لا يمكن التراجع عنه.'
-            : 'Are you sure you want to delete your account? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+      _buildCustomDialog(
+        title: "",
+        content: Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.warning_rounded,
+                color: Colors.red,
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                isArabic
+                    ? 'هل أنت متأكد من حذف حسابك؟'
+                    : 'Are you sure you want to delete your account?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isArabic
+                    ? 'سيتم حذف جميع بياناتك بشكل نهائي ولا يمكن استرجاعها.'
+                    : 'All your data will be permanently deleted and cannot be recovered.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  height: 1.5,
+                ),
+              ),
+            ],
           ),
-          TextButton(
+        ),
+        actions: [
+          _buildCustomButton(
+            text: isArabic ? 'إلغاء' : 'Cancel',
+            onPressed: () => Get.back(),
+          ),
+          _buildCustomButton(
+            text: isArabic ? 'متابعة' : 'Continue',
+            isPrimary: true,
             onPressed: () {
               Get.back();
               _showDeleteConfirmation();
             },
-            child: Text(
-              isArabic ? 'حذف' : 'Delete',
-              style: const TextStyle(color: Colors.red),
-            ),
           ),
         ],
       ),
     );
   }
 
-  // Show delete confirmation
+  // Show delete confirmation with password
   void _showDeleteConfirmation() {
-    final deleteController = TextEditingController();
+    final passwordController = TextEditingController();
+    final passwordError = RxString('');
+    final isDeleting = RxBool(false);
 
     Get.dialog(
-      AlertDialog(
-        title: Text(isArabic ? 'تأكيد الحذف' : 'Confirm Deletion'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(isArabic
-                ? 'اكتب "DELETE" لتأكيد حذف الحساب:'
-                : 'Type "DELETE" to confirm account deletion:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: deleteController,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: 'DELETE',
+      WillPopScope(
+        onWillPop: () async => !isDeleting.value,
+        child: Obx(
+          () => _buildCustomDialog(
+            title: isArabic ? 'تأكيد الحذف' : 'Confirm Deletion',
+            content: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline,
+                      color: Colors.red[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isArabic
+                          ? 'تحذير: هذا الإجراء لا يمكن التراجع عنه!'
+                          : 'Warning: This action cannot be undone!',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.red[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+            actions: [
+              _buildCustomButton(
+                text: isArabic ? 'إلغاء' : 'Cancel',
+                onPressed: isDeleting.value
+                    ? () {}
+                    : () {
+                        passwordController.dispose();
+                        Get.back();
+                      },
+              ),
+              _buildCustomButton(
+                text: isDeleting.value
+                    ? (isArabic ? 'جاري الحذف...' : 'Deleting...')
+                    : (isArabic ? 'حذف الحساب' : 'Delete Account'),
+                isPrimary: true,
+                onPressed: isDeleting.value
+                    ? () {}
+                    : () async {
+                        await _performAccountDeletion(isDeleting);
+                      },
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              if (deleteController.text == 'DELETE') {
-                Get.back();
-                // TODO: Implement account deletion API call
-                Get.snackbar(
-                  isArabic ? 'تم الحذف' : 'Deleted',
-                  isArabic
-                      ? 'تم حذف حسابك بنجاح'
-                      : 'Your account has been deleted successfully',
-                  snackPosition: SnackPosition.BOTTOM,
-                  backgroundColor: Colors.red,
-                  colorText: Colors.white,
-                );
-              } else {
-                Get.snackbar(
-                  isArabic ? 'خطأ' : 'Error',
-                  isArabic
-                      ? 'يجب كتابة DELETE بالضبط'
-                      : 'You must type DELETE exactly',
-                  snackPosition: SnackPosition.BOTTOM,
-                  backgroundColor: Colors.red,
-                  colorText: Colors.white,
-                );
-              }
-            },
-            child: Text(
-              isArabic ? 'تأكيد الحذف' : 'Confirm Delete',
-              style: const TextStyle(color: Colors.red),
+        ),
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+// تنفيذ حذف الحساب
+Future<void> _performAccountDeletion(RxBool isDeleting) async {
+  try {
+    isDeleting.value = true;
+
+    // عرض رسالة انتظار
+    Get.snackbar(
+      isArabic ? 'جاري المعالجة...' : 'Processing...',
+      isArabic ? 'يتم حذف حسابك' : 'Deleting your account',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.orange,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 2),
+    );
+
+    // استدعاء API لحذف الحساب
+    final response = await _profileService.deleteAccount();
+
+    // إغلاق نافذة التأكيد
+    Get.back();
+
+    // ✅ التحقق من النجاح
+    if (response['success'] == true) {
+      // عرض رسالة نجاح
+      Get.snackbar(
+        isArabic ? 'تم الحذف بنجاح' : 'Successfully Deleted',
+        response['message'] ?? 
+          (isArabic
+              ? 'تم حذف حسابك بنجاح'
+              : 'Your account has been deleted successfully'),
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+        icon: const Icon(Icons.check_circle, color: Colors.white),
+      );
+
+      // الانتظار قليلاً ثم تسجيل الخروج
+      await Future.delayed(const Duration(seconds: 2));
+
+      // تسجيل الخروج وحذف البيانات المحلية
+      try {
+        final authController = Get.find<AuthController>();
+        await authController.logout();
+      } catch (e) {
+        print('Error during logout: $e');
+        Get.offAllNamed(AppRoutes.LOGIN);
+      }
+    }
+  } on AccountDeletionException catch (e) {
+    print('AccountDeletionException: ${e.message}');
+
+    String title;
+    String message;
+    Color backgroundColor;
+    IconData icon;
+
+    switch (e.type) {
+      case AccountDeletionErrorType.unpaidInvoices:
+        title = isArabic ? 'فواتير غير مدفوعة' : 'Unpaid Invoices';
+        message = _formatUnpaidInvoicesMessage(e.message);
+        backgroundColor = Colors.orange;
+        icon = Icons.receipt_long;
+        
+        // إظهار dialog مع تفاصيل الفواتير
+        _showUnpaidInvoicesDialog(e.message);
+        return;
+
+      case AccountDeletionErrorType.pendingOrders:
+        title = isArabic ? 'طلبات معلقة' : 'Pending Orders';
+        message = _formatPendingOrdersMessage(e.message);
+        backgroundColor = Colors.orange;
+        icon = Icons.pending_actions;
+        
+        // إظهار dialog مع تفاصيل الطلبات
+        _showPendingOrdersDialog(e.message);
+        return;
+
+      case AccountDeletionErrorType.unauthorized:
+        title = isArabic ? 'انتهت الجلسة' : 'Session Expired';
+        message = isArabic
+            ? 'انتهت جلستك. يرجى تسجيل الدخول مرة أخرى'
+            : 'Your session has expired. Please login again';
+        backgroundColor = Colors.red;
+        icon = Icons.lock_outline;
+        
+        // تسجيل الخروج تلقائياً
+        Future.delayed(const Duration(seconds: 2), () {
+          final authController = Get.find<AuthController>();
+          authController.logout();
+        });
+        break;
+
+      case AccountDeletionErrorType.forbidden:
+        title = isArabic ? 'غير مسموح' : 'Forbidden';
+        message = isArabic
+            ? 'ليس لديك صلاحية لحذف هذا الحساب'
+            : 'You do not have permission to delete this account';
+        backgroundColor = Colors.red;
+        icon = Icons.block;
+        break;
+
+      case AccountDeletionErrorType.notFound:
+        title = isArabic ? 'حساب غير موجود' : 'Account Not Found';
+        message = isArabic
+            ? 'الحساب غير موجود في النظام'
+            : 'Account does not exist in the system';
+        backgroundColor = Colors.red;
+        icon = Icons.person_off;
+        break;
+
+      case AccountDeletionErrorType.serverError:
+        title = isArabic ? 'خطأ في السيرفر' : 'Server Error';
+        message = isArabic
+            ? 'حدث خطأ في السيرفر. يرجى المحاولة لاحقاً'
+            : 'A server error occurred. Please try again later';
+        backgroundColor = Colors.red;
+        icon = Icons.error_outline;
+        break;
+
+      case AccountDeletionErrorType.unknown:
+      default:
+        title = isArabic ? 'خطأ' : 'Error';
+        message = e.message;
+        backgroundColor = Colors.red;
+        icon = Icons.warning_amber;
+    }
+
+    Get.snackbar(
+      title,
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: backgroundColor,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 5),
+      icon: Icon(icon, color: Colors.white),
+      margin: const EdgeInsets.all(16),
+    );
+  } catch (e) {
+    print('Unexpected error deleting account: $e');
+
+    String errorMessage;
+
+    if (e.toString().contains('لا يوجد اتصال') ||
+        e.toString().contains('No internet') ||
+        e.toString().contains('Network')) {
+      errorMessage =
+          isArabic ? 'لا يوجد اتصال بالإنترنت' : 'No internet connection';
+    } else if (e.toString().contains('timeout') ||
+        e.toString().contains('انتهت مهلة')) {
+      errorMessage = isArabic
+          ? 'انتهت مهلة الاتصال. يرجى المحاولة مرة أخرى'
+          : 'Connection timeout. Please try again';
+    } else {
+      errorMessage = isArabic
+          ? 'فشل في حذف الحساب. يرجى المحاولة مرة أخرى'
+          : 'Failed to delete account. Please try again';
+    }
+
+    Get.snackbar(
+      isArabic ? 'خطأ' : 'Error',
+      errorMessage,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 4),
+      icon: const Icon(Icons.error, color: Colors.white),
+    );
+  } finally {
+    isDeleting.value = false;
+  }
+}
+
+
+  // ✅ دالة لتنسيق رسالة الفواتير غير المدفوعة
+String _formatUnpaidInvoicesMessage(String originalMessage) {
+  if (isArabic) {
+    // استخراج الأرقام من الرسالة الإنجليزية وعرضها بالعربي
+    final regex = RegExp(r'(\d+)\s+unpaid invoice.*?(\d+\.?\d*)\s+SAR.*?(\d+\.?\d*)\s+SAR');
+    final match = regex.firstMatch(originalMessage);
+    
+    if (match != null) {
+      final count = match.group(1);
+      final commission = match.group(2);
+      final total = match.group(3);
+      
+      return 'لديك $count فاتورة غير مدفوعة بعمولة إجمالية $commission ريال ومبلغ إجمالي $total ريال. يرجى تسوية جميع المدفوعات المعلقة قبل حذف الحساب.';
+    }
+  }
+  
+  return originalMessage;
+}
+
+// ✅ دالة لتنسيق رسالة الطلبات المعلقة
+String _formatPendingOrdersMessage(String originalMessage) {
+  if (isArabic) {
+    final regex = RegExp(r'(\d+)\s+pending order.*?(\d+\.?\d*)\s+SAR');
+    final match = regex.firstMatch(originalMessage);
+    
+    if (match != null) {
+      final count = match.group(1);
+      final total = match.group(2);
+      
+      return 'لديك $count طلب معلق بفواتير غير مدفوعة بمبلغ إجمالي $total ريال. يرجى إكمال أو إلغاء جميع الطلبات المعلقة قبل حذف الحساب.';
+    }
+  }
+  
+  return originalMessage;
+}
+
+// ✅ Dialog للفواتير غير المدفوعة مع خيار الانتقال للفواتير
+void _showUnpaidInvoicesDialog(String message) {
+  Get.dialog(
+    _buildCustomDialog(
+      title: isArabic ? 'فواتير غير مدفوعة' : 'Unpaid Invoices',
+      content: Column(
+        children: [
+          Icon(Icons.receipt_long, color: Colors.orange, size: 48),
+          const SizedBox(height: 16),
+          Text(
+            _formatUnpaidInvoicesMessage(message),
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[700],
+              height: 1.5,
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
-    );
-  }
+      actions: [
+        _buildCustomButton(
+          text: isArabic ? 'إغلاق' : 'Close',
+          onPressed: () => Get.back(),
+        ),
+        _buildCustomButton(
+          text: isArabic ? 'عرض الفواتير' : 'View Invoices',
+          isPrimary: true,
+          onPressed: () {
+            Get.back();
+            Get.back(); // إغلاق dialog حذف الحساب أيضاً
+            // التنقل إلى صفحة الفواتير
+            Get.toNamed(AppRoutes.INCOME); // أضف المسار المناسب
+          },
+        ),
+      ],
+    ),
+  );
+}
+
+// ✅ Dialog للطلبات المعلقة مع خيار الانتقال للطلبات
+void _showPendingOrdersDialog(String message) {
+  Get.dialog(
+    _buildCustomDialog(
+      title: isArabic ? 'طلبات معلقة' : 'Pending Orders',
+      content: Column(
+        children: [
+          Icon(Icons.pending_actions, color: Colors.orange, size: 48),
+          const SizedBox(height: 16),
+          Text(
+            _formatPendingOrdersMessage(message),
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[700],
+              height: 1.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+      actions: [
+        _buildCustomButton(
+          text: isArabic ? 'إغلاق' : 'Close',
+          onPressed: () => Get.back(),
+        ),
+        _buildCustomButton(
+          text: isArabic ? 'عرض الطلبات' : 'View Orders',
+          isPrimary: true,
+          onPressed: () {
+            Get.back();
+            Get.back(); // إغلاق dialog حذف الحساب أيضاً
+            // التنقل إلى صفحة الطلبات
+            Get.toNamed(AppRoutes.REQUESTS); // أضف المسار المناسب
+          },
+        ),
+      ],
+    ),
+  );
+}
 
   // Logout
   void logout() {

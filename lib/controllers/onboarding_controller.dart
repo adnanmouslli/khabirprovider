@@ -1,6 +1,7 @@
 // controllers/onboarding_controller.dart
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/language_service.dart';
 import '../services/storage_service.dart';
 
@@ -76,12 +77,19 @@ class OnboardingController extends GetxController {
   }
 
   /// اختيار User
-  void selectUser() {
-    // حفظ نوع المستخدم
-    _saveUserType('user');
-    _saveOnboardingCompleted();
-    Get.offAllNamed('/user-auth');
+  void selectUser() async {
+    const url = 'https://play.google.com/store/apps/details?id=com.akwan.khabirkhadmat_new';
+
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication, // يفتح المتجر أو المتصفح
+      );
+    } else {
+      throw 'لا يمكن فتح الرابط: $url';
+    }
   }
+
 
   /// العودة للصفحة السابقة
   void goBack() {

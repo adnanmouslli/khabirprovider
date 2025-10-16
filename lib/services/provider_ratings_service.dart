@@ -10,6 +10,19 @@ class ProviderRatingsService {
 
   // Provider ratings endpoints
   static const String _providerRatings = '/provider-ratings';
+  static const String notificationCount = '/providers';
+
+
+
+  Future<Map<String, dynamic>> getNotificationCount(int providerId) async {
+    try {
+      final response = await _dioService.get('$_baseUrl$notificationCount/$providerId/orders/pending/count');
+
+      return response.data ?? {};
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
 
   // جلب تقييمات المزود
   Future<Map<String, dynamic>> getProviderRatings(int providerId) async {

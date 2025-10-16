@@ -38,14 +38,15 @@ class User {
   final DateTime updatedAt;
   final String? description;
   final String? city;
-  final bool? isVerified; // إضافة الحقل المفقود
-  final String? location; // إضافة الحقل المفقود
+  final bool? isVerified;
+  final String? location;
+  final bool onlineStatus; // إضافة الحقل الجديد
 
   User({
     required this.id,
     required this.name,
     required this.email,
-    this.role = 'provider', // قيمة افتراضية
+    this.role = 'provider',
     this.image,
     this.address,
     required this.phone,
@@ -58,6 +59,7 @@ class User {
     this.city,
     this.isVerified,
     this.location,
+    this.onlineStatus = false, // قيمة افتراضية
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -82,6 +84,7 @@ class User {
       city: json['city'],
       isVerified: json['isVerified'],
       location: json['location'],
+      onlineStatus: json['onlineStatus'] ?? false, // إضافة الحقل الجديد
     );
   }
 
@@ -103,6 +106,7 @@ class User {
       'city': city,
       'isVerified': isVerified,
       'location': location,
+      'onlineStatus': onlineStatus, // إضافة الحقل الجديد
     };
   }
 
@@ -123,6 +127,7 @@ class User {
     String? city,
     bool? isVerified,
     String? location,
+    bool? onlineStatus, // إضافة الحقل الجديد
   }) {
     return User(
       id: id ?? this.id,
@@ -141,10 +146,10 @@ class User {
       city: city ?? this.city,
       isVerified: isVerified ?? this.isVerified,
       location: location ?? this.location,
+      onlineStatus: onlineStatus ?? this.onlineStatus, // إضافة الحقل الجديد
     );
   }
 }
-
 class SystemInfo {
   final SocialMedia socialMedia;
   final LegalDocuments legalDocuments;

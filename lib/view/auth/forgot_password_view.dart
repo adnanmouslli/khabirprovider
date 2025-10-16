@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../controllers/auth_controller.dart';
+import '../../controllers/ForgotPasswordController.dart';
 import '../../utils/colors.dart';
 import '../../widgets/CustomButton.dart';
-import '../../widgets/CustomTextField.dart';
+import '../../widgets/PhoneField.dart'; // استيراد القالب الجديد
 
-class ForgotPasswordView extends GetView<AuthController> {
-  final AuthController controller = Get.put(AuthController());
+class ForgotPasswordView extends GetView<ForgotPasswordController> {
+  final ForgotPasswordController controller = Get.put(ForgotPasswordController());
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +60,23 @@ class ForgotPasswordView extends GetView<AuthController> {
 
                       const SizedBox(height: 16),
 
+                      // أيقونة الهاتف
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(40),
+                        ),
+                        child: Icon(
+                          Icons.smartphone_rounded,
+                          size: 40,
+                          color: AppColors.primary,
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
                       // Title
                       Text(
                         'forgot_your_password'.tr,
@@ -87,15 +104,39 @@ class ForgotPasswordView extends GetView<AuthController> {
 
                       const SizedBox(height: 32),
 
-                      // Mobile number field
-                      CustomTextField(
+                      // Phone number field using the new PhoneField widget
+                      Obx(() => PhoneField(
                         controller: controller.phoneController,
                         hintText: 'enter_mobile_number'.tr,
-                        prefixIcon: Icons.phone_outlined,
-                        keyboardType: TextInputType.phone,
-                      ),
+                        errorText: controller.phoneError.value.isEmpty ? null : controller.phoneError.value,
+                        onChanged: (value) {
+                          // سيتم التعامل مع التغيير في ForgotPasswordController
+                          // controller.onPhoneChanged() يتم استدعاؤه تلقائياً من خلال listener
+                        },
+                        showValidIcon: true,
+                        enabled: !controller.isLoading.value,
+                      )),
 
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 16),
+
+                      // Debug info (يمكنك إزالة هذا القسم في الإنتاج)
+                      if (controller.formattedPhoneNumber.value.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Obx(() => Text(
+                            'Formatted: ${controller.formattedPhoneNumber.value}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue,
+                            ),
+                          )),
+                        ),
+
+                      const SizedBox(height: 16),
 
                       // Send button
                       Obx(() => CustomButton(
@@ -107,8 +148,10 @@ class ForgotPasswordView extends GetView<AuthController> {
                         backgroundColor: AppColors.primary,
                         textColor: Colors.white,
                         borderRadius: 12,
-                        icon: Icons.send,
+                        icon: Icons.send_rounded,
                       )),
+
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),

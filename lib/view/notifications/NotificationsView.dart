@@ -53,10 +53,10 @@ class NotificationsView extends GetView<NotificationsController> {
       floatingActionButton: Obx(() => controller.isLoading.value
           ? const SizedBox.shrink()
           : FloatingActionButton(
-        onPressed: controller.refreshNotifications,
-        backgroundColor: const Color(0xFFEF4444),
-        child: const Icon(Icons.refresh, color: Colors.white),
-      )),
+              onPressed: controller.refreshNotifications,
+              backgroundColor: const Color(0xFFEF4444),
+              child: const Icon(Icons.refresh, color: Colors.white),
+            )),
     );
   }
 
@@ -112,21 +112,14 @@ class NotificationsView extends GetView<NotificationsController> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'الإشعارات',
-                    style: TextStyle(
+                  Text(
+                    'notifications_title'.tr,
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                       color: Colors.black87,
                     ),
                   ),
-                  Obx(() => Text(
-                    '${controller.notifications.length} طلب معلق',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  )),
                 ],
               ),
             ],
@@ -135,31 +128,10 @@ class NotificationsView extends GetView<NotificationsController> {
           // Actions
           Row(
             children: [
-              // Clear all notifications
-              Obx(() => controller.notifications.isNotEmpty
-                  ? GestureDetector(
-                onTap: controller.clearAllNotifications,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.clear_all,
-                    color: Colors.red[600],
-                    size: 20,
-                  ),
-                ),
-              )
-                  : const SizedBox.shrink()),
-
-              const SizedBox(width: 12),
-
               // Logo
               GestureDetector(
                 onTap: () {
-                  Get.snackbar('خبير', 'مرحباً بك في خبير');
+                  Get.snackbar('app_name'.tr, 'welcome_message'.tr);
                 },
                 child: Container(
                   height: 40,
@@ -252,13 +224,14 @@ class NotificationsView extends GetView<NotificationsController> {
                     if (isMultipleServices) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.blue.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          '$servicesCount خدمة',
+                          '$servicesCount ${'services_label'.tr}',
                           style: const TextStyle(
                             fontSize: 10,
                             color: Colors.blue,
@@ -305,7 +278,8 @@ class NotificationsView extends GetView<NotificationsController> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          notification['customerName'] ?? 'عميل',
+                          notification['customerName'] ??
+                              'customer_default_name'.tr,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -347,9 +321,9 @@ class NotificationsView extends GetView<NotificationsController> {
                 color: Colors.grey[50],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'في انتظار القبول',
-                style: TextStyle(
+              child: Text(
+                'waiting_for_acceptance'.tr,
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Colors.grey,
@@ -369,91 +343,131 @@ class NotificationsView extends GetView<NotificationsController> {
 
           const SizedBox(height: 16),
 
-          // Location and Price row
-          Row(
+          // معلومات التاريخ والمدة والولاية والسعر
+          Column(
             children: [
-              // State
-              Expanded(
+              // معلومات التاريخ والمدة
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'الولاية',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
+                    // تاريخ الطلب
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time,
+                          size: 16,
+                          color: Colors.grey[600],
+                        ),
+                        const SizedBox(width: 8),
+
+                        // الولاية
+                        Expanded(
+                          flex: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'state_label'.tr,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                notification['state'] ?? 'not_specified'.tr,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // السعر الإجمالي
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${notification['price']} ${'currency'.tr}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      notification['state'] ?? '',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
+
+                    const SizedBox(height: 12),
+
+                    //  والموقع
+                    Row(
+                      children: [
+                        // زر الموقع
+                        GestureDetector(
+                          onTap: () => controller.viewLocation(index),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue, width: 1),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  blurRadius: 2,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.location_on,
+                                  color: Colors.blue,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'view_location'.tr,
+                                  style: const TextStyle(
+                                    color: Colors.blue,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 12),
+                      ],
                     ),
                   ],
                 ),
-              ),
-
-              // Location button
-              GestureDetector(
-                onTap: () => controller.viewLocation(index),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue, width: 1),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.location_on,
-                        color: Colors.blue,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      const Text(
-                        'الموقع',
-                        style: TextStyle(
-                          color: Colors.blue,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(width: 16),
-
-              // Price
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'السعر',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${notification['price']} OMR',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFEF4444),
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
@@ -481,10 +495,10 @@ class NotificationsView extends GetView<NotificationsController> {
                         ),
                       ],
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Text(
-                        'قبول الطلب',
-                        style: TextStyle(
+                        'accept_request'.tr,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -502,7 +516,8 @@ class NotificationsView extends GetView<NotificationsController> {
                 GestureDetector(
                   onTap: () => controller.viewServicesDetails(index),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14, horizontal: 16),
                     decoration: BoxDecoration(
                       color: Colors.blue,
                       borderRadius: BorderRadius.circular(10),
@@ -515,10 +530,10 @@ class NotificationsView extends GetView<NotificationsController> {
                         ),
                       ],
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Text(
-                        'التفاصيل',
-                        style: TextStyle(
+                        'details_button'.tr,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -548,10 +563,10 @@ class NotificationsView extends GetView<NotificationsController> {
                         ),
                       ],
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Text(
-                        'رفض الطلب',
-                        style: TextStyle(
+                        'reject_request'.tr,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -577,7 +592,7 @@ class NotificationsView extends GetView<NotificationsController> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'نوع الخدمة',
+                'service_type'.tr,
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey[600],
@@ -603,7 +618,7 @@ class NotificationsView extends GetView<NotificationsController> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'العدد',
+                'quantity'.tr,
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey[600],
@@ -628,7 +643,7 @@ class NotificationsView extends GetView<NotificationsController> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              'المدة',
+              'duration'.tr,
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey[600],
@@ -650,7 +665,8 @@ class NotificationsView extends GetView<NotificationsController> {
     );
   }
 
-  Widget _buildMultipleServicesSection(Map<String, dynamic> notification, int index) {
+  Widget _buildMultipleServicesSection(
+      Map<String, dynamic> notification, int index) {
     final services = notification['services'] as List<dynamic>? ?? [];
     final totalQuantity = notification['totalServicesQuantity'] ?? 0;
 
@@ -682,7 +698,7 @@ class NotificationsView extends GetView<NotificationsController> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'خدمات متعددة (${services.length} خدمة)',
+                    '${'multiple_services'.tr} (${services.length} ${'services_label'.tr})',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[700],
@@ -693,14 +709,15 @@ class NotificationsView extends GetView<NotificationsController> {
                 GestureDetector(
                   onTap: () => controller.viewServicesDetails(index),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.blue.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
-                      'عرض الكل',
-                      style: TextStyle(
+                    child: Text(
+                      'view_all'.tr,
+                      style: const TextStyle(
                         fontSize: 10,
                         color: Colors.blue,
                         fontWeight: FontWeight.w600,
@@ -724,7 +741,8 @@ class NotificationsView extends GetView<NotificationsController> {
             itemBuilder: (context, serviceIndex) {
               final service = services[serviceIndex];
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 child: Row(
                   children: [
                     Expanded(
@@ -733,7 +751,7 @@ class NotificationsView extends GetView<NotificationsController> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            service['serviceTitle'] ?? 'غير محدد',
+                            service['serviceTitle'] ?? 'not_specified'.tr,
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -772,7 +790,7 @@ class NotificationsView extends GetView<NotificationsController> {
                     Expanded(
                       flex: 1,
                       child: Text(
-                        '${service['totalPrice'] ?? 0} OMR',
+                        '${service['totalPrice'] ?? 0} ${'currency'.tr}',
                         textAlign: TextAlign.end,
                         style: const TextStyle(
                           fontSize: 12,
@@ -795,7 +813,7 @@ class NotificationsView extends GetView<NotificationsController> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    '+ ${services.length - 2} خدمة أخرى',
+                    '+ ${services.length - 2} ${'more_services'.tr}',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey[600],
@@ -821,7 +839,7 @@ class NotificationsView extends GetView<NotificationsController> {
               children: [
                 Expanded(
                   child: Text(
-                    'إجمالي الكمية: $totalQuantity',
+                    '${'total_quantity'.tr}: $totalQuantity',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -830,7 +848,7 @@ class NotificationsView extends GetView<NotificationsController> {
                   ),
                 ),
                 Text(
-                  'المدة: ${notification['duration'] ?? 'غير محدد'}',
+                  '${'duration'.tr}: ${formatISODateTime(notification['duration'])}',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -845,18 +863,113 @@ class NotificationsView extends GetView<NotificationsController> {
     );
   }
 
+  String formatISODateTime(String? isoString) {
+    if (isoString == null || isoString.isEmpty) return 'not_specified'.tr;
+
+    try {
+      // تحويل النص إلى DateTime
+      DateTime dateTime = DateTime.parse(isoString);
+
+      // تحويل إلى التوقيت المحلي
+      DateTime localDateTime = dateTime.toLocal();
+
+      final now = DateTime.now();
+      final difference = localDateTime.difference(now); // عكس العملية
+
+      // إذا كان التاريخ في الماضي
+      if (difference.isNegative) {
+        final absDifference = difference.abs();
+
+        // نفس اليوم
+        if (absDifference.inDays == 0) {
+          final hour = localDateTime.hour;
+          final minute = localDateTime.minute.toString().padLeft(2, '0');
+          String period = hour < 12 ? 'am'.tr : 'pm'.tr;
+          int displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+          return '${'today'.tr} ${displayHour}:${minute} $period';
+        }
+
+        // أمس
+        if (absDifference.inDays == 1) {
+          final hour = localDateTime.hour;
+          final minute = localDateTime.minute.toString().padLeft(2, '0');
+          String period = hour < 12 ? 'am'.tr : 'pm'.tr;
+          int displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+          return '${'yesterday'.tr} ${displayHour}:${minute} $period';
+        }
+
+        // أقل من أسبوع
+        if (absDifference.inDays < 7) {
+          return '${'since'.tr} ${absDifference.inDays} ${'days'.tr}';
+        }
+
+        // أقل من شهر
+        if (absDifference.inDays < 30) {
+          final weeks = (absDifference.inDays / 7).floor();
+          return '${'since'.tr} $weeks ${'weeks'.tr}';
+        }
+      } else {
+        // التاريخ في المستقبل
+
+        // نفس اليوم
+        if (difference.inDays == 0) {
+          final hour = localDateTime.hour;
+          final minute = localDateTime.minute.toString().padLeft(2, '0');
+          String period = hour < 12 ? 'am'.tr : 'pm'.tr;
+          int displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+          return '${'today'.tr} ${displayHour}:${minute} $period';
+        }
+
+        // غداً
+        if (difference.inDays == 1) {
+          final hour = localDateTime.hour;
+          final minute = localDateTime.minute.toString().padLeft(2, '0');
+          String period = hour < 12 ? 'am'.tr : 'pm'.tr;
+          int displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+          return '${'tomorrow'.tr} ${displayHour}:${minute} $period';
+        }
+
+        // أقل من أسبوع
+        if (difference.inDays < 7) {
+          return '${'after'.tr} ${difference.inDays} ${'days'.tr}';
+        }
+
+        // أقل من شهر
+        if (difference.inDays < 30) {
+          final weeks = (difference.inDays / 7).floor();
+          return '${'after'.tr} $weeks ${'weeks'.tr}';
+        }
+      }
+
+      // تاريخ مفصل للتواريخ البعيدة
+      final day = localDateTime.day.toString().padLeft(2, '0');
+      final month = localDateTime.month.toString().padLeft(2, '0');
+      final year = localDateTime.year;
+      final hour = localDateTime.hour;
+      final minute = localDateTime.minute.toString().padLeft(2, '0');
+
+      String period = hour < 12 ? 'am'.tr : 'pm'.tr;
+      int displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+
+      return '$day/$month/$year - ${displayHour}:${minute} $period';
+    } catch (e) {
+      print('Error parsing date: $e');
+      return 'invalid_date'.tr;
+    }
+  }
+
   Widget _buildLoadingState() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(
+          const CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFEF4444)),
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
-            'جاري تحميل الإشعارات...',
-            style: TextStyle(
+            'loading_notifications'.tr,
+            style: const TextStyle(
               fontSize: 16,
               color: Colors.grey,
             ),
@@ -878,7 +991,7 @@ class NotificationsView extends GetView<NotificationsController> {
           ),
           const SizedBox(height: 16),
           Text(
-            'لا توجد طلبات معلقة',
+            'no_pending_requests'.tr,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -887,7 +1000,7 @@ class NotificationsView extends GetView<NotificationsController> {
           ),
           const SizedBox(height: 8),
           Text(
-            'ستظهر الطلبات الجديدة هنا',
+            'new_requests_will_appear_here'.tr,
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[500],
@@ -902,9 +1015,9 @@ class NotificationsView extends GetView<NotificationsController> {
                 color: const Color(0xFFEF4444),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'تحديث',
-                style: TextStyle(
+              child: Text(
+                'refresh'.tr,
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
                 ),
@@ -933,14 +1046,29 @@ class NotificationsView extends GetView<NotificationsController> {
     if (dateTime == null) return '';
 
     final now = DateTime.now();
-    final difference = now.difference(dateTime);
+    final difference = dateTime.difference(now); // عكس العملية لتكون موجبة
 
-    if (difference.inMinutes < 60) {
-      return 'منذ ${difference.inMinutes} دقيقة';
-    } else if (difference.inHours < 24) {
-      return 'منذ ${difference.inHours} ساعة';
+    // إذا كان التاريخ في المستقبل
+    if (difference.isNegative) {
+      final absDifference = difference.abs();
+
+      if (absDifference.inMinutes < 60) {
+        return '${'since'.tr} ${absDifference.inMinutes} ${'minutes'.tr}';
+      } else if (absDifference.inHours < 24) {
+        return '${'since'.tr} ${absDifference.inHours} ${'hours'.tr}';
+      } else {
+        return '${'since'.tr} ${absDifference.inDays} ${'days'.tr}';
+      }
     } else {
-      return 'منذ ${difference.inDays} يوم';
+      // التاريخ في المستقبل
+      if (difference.inMinutes < 60) {
+        return '${'after'.tr} ${difference.inMinutes} ${'minutes'.tr}';
+      } else if (difference.inHours < 24) {
+        return '${'after'.tr} ${difference.inHours} ${'hours'.tr}';
+      } else {
+        return '${'after'.tr} ${difference.inDays} ${'days'.tr}';
+      }
     }
   }
+
 }
