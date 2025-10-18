@@ -58,17 +58,6 @@ class ForgotPasswordController extends GetxController {
 
   @override
   void onClose() {
-    phoneController.removeListener(onPhoneChanged);
-    otpController.removeListener(_onOtpChanged);
-    newPasswordController.removeListener(_onPasswordChanged);
-    confirmNewPasswordController.removeListener(_onPasswordChanged);
-
-    phoneController.dispose();
-    otpController.dispose();
-    newPasswordController.dispose();
-    confirmNewPasswordController.dispose();
-
-    otpErrorController?.close();
     super.onClose();
   }
 

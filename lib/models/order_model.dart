@@ -8,7 +8,7 @@ class OrderModel {
   final String bookingId;
   final int userId;
   final int providerId;
-  final int serviceId; // Keep for backward compatibility
+  final int serviceId; 
   final String status;
   final DateTime orderDate;
   final DateTime? scheduledDate;
@@ -23,7 +23,6 @@ class OrderModel {
   final ProviderModel provider;
   final InvoiceModel? invoice;
   final String? duration;
-  // New fields for multiple services
   final bool isMultipleServices;
   final List<ServiceBreakdown> servicesBreakdown;
   final List<OrderServiceModel> services;

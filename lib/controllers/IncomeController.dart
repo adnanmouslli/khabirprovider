@@ -521,7 +521,7 @@ class IncomeController extends GetxController {
         ' $amount ' +
         'omr'.tr);
     final String whatsappUrl =
-        'https://wa.me/${AppConfig.supportWhatsAppNumber}?text=$message';
+        'https://wa.me/${supportPhone.value}?text=$message';
     if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
       await launchUrl(
         Uri.parse(whatsappUrl),

@@ -151,7 +151,6 @@ class AuthService {
     }
   }
 
-
   // فحص حالة الحساب
   Future<Map<String, dynamic>> checkAccountStatus({
     required String phoneNumber,
@@ -177,9 +176,7 @@ class AuthService {
     try {
       final response = await _dioService.post(
         '$_baseUrl$_sendOtp',
-        data: {
-          'phoneNumber': phoneNumber,
-        },
+        data: {'phoneNumber': phoneNumber, 'role': "PROVIDER"},
       );
 
       return response.data;
@@ -201,6 +198,7 @@ class AuthService {
           'phoneNumber': phoneNumber,
           'otp': otp,
           'newPassword': newPassword,
+          "role": "PROVIDER"
         },
       );
 
