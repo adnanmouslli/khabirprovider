@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:387321964868:android:f8f3cb3a99acc24f130f11",
+        "mobilesdk_app_id": "1:387321964868:android:98727858b7311f2a130f11",
         "android_client_info": {
-          "package_name": "com.akwan.khabirprovider_new"
+          "package_name": "com.khabirs.provider"
         }
       },
       "oauth_client": [],

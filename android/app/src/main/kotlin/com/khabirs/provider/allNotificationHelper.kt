@@ -1,4 +1,4 @@
-package com.akwan.khabirprovider_new
+package com.khabirs.provider
 
 import android.app.Notification
 import android.app.NotificationChannel

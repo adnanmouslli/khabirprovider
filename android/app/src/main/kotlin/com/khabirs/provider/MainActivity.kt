@@ -1,4 +1,4 @@
-package com.akwan.khabirprovider_new
+package com.khabirs.provider
 
 import android.app.*
 import android.content.Context
@@ -13,7 +13,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.akwan.khabirprovider_new/notifications"
+    private val CHANNEL = "com.khabirs.provider/notifications"
     private val CALL_NOTIFICATION_ID = 1001
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

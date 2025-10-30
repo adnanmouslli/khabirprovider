@@ -1,4 +1,4 @@
-package com.akwan.khabirprovider_new
+package com.khabirs.provider
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -38,7 +38,7 @@ class CallActionReceiver : BroadcastReceiver() {
                 Log.d("CallActionReceiver", "Call declined from: $callerName, orderId: $orderId")
                 
                 // إرسال broadcast للتطبيق إذا كان مفتوحاً لتسجيل الرفض
-                val declineIntent = Intent("com.akwan.khabirprovider_new.CALL_DECLINED").apply {
+                val declineIntent = Intent("com.khabirs.provider.CALL_DECLINED").apply {
                     putExtra("order_id", orderId)
                     putExtra("caller_name", callerName)
                 }
@@ -86,7 +86,7 @@ class CallActionReceiver : BroadcastReceiver() {
             context.startActivity(launchIntent)
             
             // الطريقة الثانية: إرسال broadcast للتطبيق إذا كان مفتوحاً
-            val broadcastIntent = Intent("com.akwan.khabirprovider_new.CALL_ACCEPTED").apply {
+            val broadcastIntent = Intent("com.khabirs.provider.CALL_ACCEPTED").apply {
                 putExtra("order_id", orderId)
                 putExtra("caller_name", callerName)
                 putExtra("caller_phone", callerPhone)

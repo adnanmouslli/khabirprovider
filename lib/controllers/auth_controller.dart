@@ -1174,7 +1174,7 @@ class AuthController extends GetxController {
         );
         return;
       }
-      final privacyTitle = isArabic ? 'سياسة الخصوصية' : 'Privacy Policy';
+      final privacyTitle = isArabic ? 'الشروط والأحكام' : 'Privacy Policy';
 
       openPrivacyPolicyUrl(termsUrl, privacyTitle);
     } catch (e) {
@@ -1210,7 +1210,7 @@ class AuthController extends GetxController {
         Get.snackbar(
           'error'.tr,
           isArabic
-              ? 'رابط سياسة الخصوصية غير متوفر حالياً'
+              ? 'رابط الشروط والأحكام غير متوفر حالياً'
               : 'Privacy policy link is not available currently',
           backgroundColor: Colors.orange,
           colorText: Colors.white,

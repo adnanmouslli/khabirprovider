@@ -25,7 +25,7 @@ import 'dart:io';
 
 // إضافة MethodChannel للتواصل مع Native
 const MethodChannel _methodChannel =
-    MethodChannel('com.akwan.khabirprovider_new/notifications');
+    MethodChannel('com.khabirs.provider/notifications');
 
 // متغير لتتبع حالة التطبيق - مهم جداً
 bool _isAppInForeground = false;
@@ -271,7 +271,7 @@ Future<void> _declineOrderFromForeground(String? orderId) async {
 // Firebase Options
 const FirebaseOptions androidFirebaseOptions = FirebaseOptions(
   apiKey: 'AIzaSyDHO1IFaUDdDK9RTUxqxX6KP2P9v7jbfNA',
-  appId: '1:387321964868:android:f8f3cb3a99acc24f130f11',
+  appId: '1:387321964868:android:98727858b7311f2a130f11',
   messagingSenderId: '387321964868',
   projectId: 'khabir-e3989',
   storageBucket: 'khabir-e3989.firebasestorage.app',

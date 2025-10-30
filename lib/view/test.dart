@@ -499,7 +499,7 @@
 
 
 // class NativeNotificationService {
-//   static const platform = MethodChannel('com.akwan.khabirprovider_new/notifications');
+//   static const platform = MethodChannel('com.khabirs.provider/notifications');
 
 //   // إظهار إشعار مكالمة native
 //   @pragma('vm:entry-point')

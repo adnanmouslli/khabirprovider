@@ -69,7 +69,7 @@ class UpdateView extends StatelessWidget {
 
   // فتح Google Play Store
   Future<void> openPlayStore() async {
-    const String packageName = 'com.akwan.khabirprovider_new';
+    const String packageName = 'com.khabirs.provider';
 
     try {
       // رابط Google Play Store

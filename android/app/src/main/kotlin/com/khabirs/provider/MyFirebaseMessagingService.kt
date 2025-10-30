@@ -1,4 +1,4 @@
-package com.akwan.khabirprovider_new
+package com.khabirs.provider
 
 import android.app.*
 import android.content.Context
